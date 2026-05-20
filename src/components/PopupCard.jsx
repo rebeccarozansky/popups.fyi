@@ -23,11 +23,33 @@ function OrderIcon() {
   );
 }
 
+function MapPinIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A1628" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 22s7-7.5 7-13a7 7 0 1 0-14 0c0 5.5 7 13 7 13Z" />
+      <circle cx="12" cy="9" r="2.5" />
+    </svg>
+  );
+}
+
+function mapsUrlFor(popup) {
+  // Prefer a human address (more accurate pin + name), fall back to lat/lng.
+  const label = [popup.location_name, popup.address].filter(Boolean).join(' ');
+  if (label) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
+  }
+  if (popup.lat != null && popup.lng != null) {
+    return `https://www.google.com/maps/search/?api=1&query=${popup.lat},${popup.lng}`;
+  }
+  return null;
+}
+
 function stop(e) {
   e.stopPropagation();
 }
 
 const PopupCard = forwardRef(function PopupCard({ popup, onClick }, ref) {
+  const mapsUrl = mapsUrlFor(popup);
   return (
     <button
       ref={ref}
@@ -56,7 +78,7 @@ const PopupCard = forwardRef(function PopupCard({ popup, onClick }, ref) {
           </div>
         )}
 
-        {(popup.instagram_url || popup.order_url) && (
+        {(popup.instagram_url || popup.order_url || mapsUrl) && (
           <div className="mt-3 flex items-center gap-2">
             {popup.instagram_url && (
               <a
@@ -68,6 +90,18 @@ const PopupCard = forwardRef(function PopupCard({ popup, onClick }, ref) {
                 className="w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt"
               >
                 <InstagramIcon />
+              </a>
+            )}
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={stop}
+                aria-label="Open in Google Maps"
+                className="w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt"
+              >
+                <MapPinIcon />
               </a>
             )}
             {popup.order_url && (
