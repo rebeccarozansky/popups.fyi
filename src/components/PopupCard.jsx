@@ -2,32 +2,51 @@ import { forwardRef } from 'react';
 import CategoryBadge from './CategoryBadge.jsx';
 import { formatCardDateTime } from '../lib/dateFilters.js';
 
-// Inline icons — used only where they communicate function.
+// Hand-drawn inline icons. Wobbly bezier paths + slightly imperfect shapes
+// to match the marker / legend aesthetic. All single-stroke, ink #0A1628.
+const ICON_STROKE = {
+  width: 16,
+  height: 16,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: '#0A1628',
+  strokeWidth: 1.6,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  'aria-hidden': 'true',
+};
+
 function InstagramIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A1628" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="4" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="0.5" fill="#0A1628" />
+    <svg {...ICON_STROKE}>
+      {/* wobbly rounded square — drawn as a single path so corners feel sketched */}
+      <path d="M6.8 3.4 C 5 3.7 3.7 5.1 3.4 6.9 C 3.1 9 3.1 15 3.4 17.1 C 3.7 18.9 5.1 20.3 6.9 20.6 C 9 20.9 15 20.9 17.1 20.6 C 18.9 20.3 20.3 18.9 20.6 17.1 C 20.9 15 20.9 9 20.6 6.9 C 20.3 5.1 18.9 3.7 17.1 3.4 C 15 3.1 9 3.1 6.8 3.4 Z" />
+      {/* lens — slightly off-round */}
+      <path d="M12.1 8 C 9.8 8 8 9.9 8 12.1 C 8 14.3 9.9 16.1 12.1 16.1 C 14.3 16.1 16.1 14.2 16.1 12 C 16.1 9.8 14.2 8 12.1 8 Z" />
+      {/* dot */}
+      <circle cx="17.4" cy="6.6" r="0.7" fill="#0A1628" stroke="none" />
     </svg>
   );
 }
 
 function OrderIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A1628" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 6h18l-2 12H5L3 6Z" />
-      <path d="M8 10v4" />
-      <path d="M16 10v4" />
+    <svg {...ICON_STROKE}>
+      {/* shopping bag — wobbly trapezoid body */}
+      <path d="M5.3 7.6 C 5.3 7.6 8.4 7.5 12 7.5 C 15.6 7.5 18.8 7.6 18.8 7.6 C 18.7 8 18 19.4 17.9 19.8 C 17.7 20.2 17.3 20.4 16.8 20.4 C 14.6 20.5 9.4 20.5 7.2 20.4 C 6.7 20.4 6.3 20.2 6.1 19.8 C 6 19.4 5.4 8 5.3 7.6 Z" />
+      {/* handle — two wobbly arcs */}
+      <path d="M8.6 7.5 C 8.6 5.4 10 4 12 4 C 14 4 15.4 5.5 15.4 7.5" />
     </svg>
   );
 }
 
 function MapPinIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A1628" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 22s7-7.5 7-13a7 7 0 1 0-14 0c0 5.5 7 13 7 13Z" />
-      <circle cx="12" cy="9" r="2.5" />
+    <svg {...ICON_STROKE}>
+      {/* teardrop pin — wobbly bezier outline */}
+      <path d="M12 20.8 C 12 20.8 7.2 15.6 6 12.2 C 4.8 8.7 7 4.4 11.4 4 C 16 3.6 18.8 7.4 18 11.2 C 17.2 14.9 12 20.8 12 20.8 Z" />
+      {/* inner dot — slightly off-round */}
+      <path d="M12.1 7.6 C 10.7 7.6 9.6 8.7 9.6 10.1 C 9.6 11.5 10.7 12.6 12.1 12.6 C 13.5 12.6 14.6 11.5 14.6 10.1 C 14.6 8.7 13.5 7.6 12.1 7.6 Z" />
     </svg>
   );
 }
