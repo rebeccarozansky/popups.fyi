@@ -1,11 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Repo deploys to https://rebeccarozansky.github.io/popups.fyi/ so all
-// asset URLs must be prefixed with the repo name. If/when you point the
-// custom domain (popups.fyi) at Pages and re-enable the CNAME file,
-// change base back to '/'.
+// Served from the apex custom domain popups.fyi, so assets live at /.
+// (When deploying without a custom domain to rebeccarozansky.github.io/popups.fyi/,
+// switch base back to '/popups.fyi/'.)
 export default defineConfig({
   plugins: [react()],
-  base: '/popups.fyi/',
+  base: '/',
 });
