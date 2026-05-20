@@ -24,7 +24,8 @@ function readUrlState() {
   const filter = FILTERS.includes(v) ? v : 'week';
   const from = params.get('from') || '';
   const to = params.get('to') || '';
-  return { filter, customRange: { from, to } };
+  const sharedId = params.get('id') || null;
+  return { filter, customRange: { from, to }, sharedId };
 }
 
 function writeUrlState({ filter, customRange }) {
@@ -66,6 +67,8 @@ export default function App() {
   const initial = useRef(readUrlState()).current;
   const [filter, setFilter] = useState(initial.filter);
   const [customRange, setCustomRange] = useState(initial.customRange);
+  // Deep link: ?id=<popup.id> selects + focuses that pop-up once data loads.
+  const pendingSharedId = useRef(initial.sharedId);
 
   const [selectedId, setSelectedId] = useState(null);
   const [mapSelectSeq, setMapSelectSeq] = useState(0);
@@ -117,6 +120,37 @@ export default function App() {
       setSelectedId(null);
     }
   }, [filtered, selectedId]);
+
+  // Resolve a ?id=... deep link once the popup data is available. If the
+  // shared popup falls outside the current filter, widen the filter to a
+  // single-day custom range covering its start date so it actually shows up.
+  useEffect(() => {
+    const sharedId = pendingSharedId.current;
+    if (!sharedId || allPopups.length === 0) return;
+    const target = allPopups.find((p) => p.id === sharedId);
+    if (!target) {
+      pendingSharedId.current = null;
+      return;
+    }
+    const inFiltered = filtered.some((p) => p.id === sharedId);
+    if (!inFiltered) {
+      const day = target.start.toISODate();
+      setFilter('custom');
+      setCustomRange({ from: day, to: day });
+      // Wait for the filter change to flow through before selecting.
+      return;
+    }
+    pendingSharedId.current = null;
+    setSelectedId(sharedId);
+    setScrollToId(sharedId);
+    setMapSelectSeq((n) => n + 1);
+    if (!isDesktop) setSnapTo('half');
+    // Strip the id from the URL so reloads from in-app navigation don't
+    // re-trigger this, but a fresh visit with the link still works.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('id');
+    window.history.replaceState(null, '', url);
+  }, [allPopups, filtered, isDesktop]);
 
   const onCardSelect = useCallback(
     (popup) => {

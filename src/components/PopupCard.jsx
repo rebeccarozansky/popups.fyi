@@ -51,6 +51,55 @@ function MapPinIcon() {
   );
 }
 
+function ShareIcon() {
+  return (
+    <svg {...ICON_STROKE}>
+      {/* three nodes connected by two wobbly lines — sketchy share glyph */}
+      <path d="M7.4 9.8 C 5.9 9.8 4.8 11 4.8 12.4 C 4.8 13.9 6 15 7.4 15 C 8.9 15 10 13.8 10 12.4 C 10 11 8.8 9.8 7.4 9.8 Z" />
+      <path d="M16.6 4.2 C 15.2 4.2 14 5.4 14 6.8 C 14 8.2 15.2 9.4 16.6 9.4 C 18 9.4 19.2 8.2 19.2 6.8 C 19.2 5.4 18 4.2 16.6 4.2 Z" />
+      <path d="M16.6 14.6 C 15.2 14.6 14 15.8 14 17.2 C 14 18.6 15.2 19.8 16.6 19.8 C 18 19.8 19.2 18.6 19.2 17.2 C 19.2 15.8 18 14.6 16.6 14.6 Z" />
+      {/* connectors */}
+      <path d="M9.6 11.2 C 11.1 10.4 12.7 9.5 14.3 8.1" />
+      <path d="M9.6 13.6 C 11.1 14.4 12.7 15.3 14.3 16.4" />
+    </svg>
+  );
+}
+
+function shareUrlFor(popup) {
+  const url = new URL(window.location.href);
+  // Strip existing query so the share link is clean and unambiguous.
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('id', popup.id);
+  return url.toString();
+}
+
+async function sharePopup(popup) {
+  const url = shareUrlFor(popup);
+  const title = popup.location_name
+    ? `${popup.name} @ ${popup.location_name}`
+    : popup.name;
+  const text = `${title} on popups.fyi`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return;
+    } catch (err) {
+      // User cancelled or share failed — fall through to clipboard.
+      if (err && err.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    // Lightweight feedback — no toast system in the app yet.
+    // eslint-disable-next-line no-alert
+    window.alert('Link copied to clipboard');
+  } catch {
+    // eslint-disable-next-line no-alert
+    window.prompt('Copy this link', url);
+  }
+}
+
 function mapsUrlFor(popup) {
   // Prefer a human address (more accurate pin + name), fall back to lat/lng.
   const label = [popup.location_name, popup.address].filter(Boolean).join(' ');
@@ -97,8 +146,7 @@ const PopupCard = forwardRef(function PopupCard({ popup, onClick }, ref) {
           </div>
         )}
 
-        {(popup.instagram_url || popup.order_url || mapsUrl) && (
-          <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex items-center gap-2">
             {popup.instagram_url && (
               <a
                 href={popup.instagram_url}
@@ -135,8 +183,18 @@ const PopupCard = forwardRef(function PopupCard({ popup, onClick }, ref) {
                 <OrderIcon />
               </a>
             )}
+            <button
+              type="button"
+              onClick={(e) => {
+                stop(e);
+                sharePopup(popup);
+              }}
+              aria-label="Share this pop-up"
+              className="w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt"
+            >
+              <ShareIcon />
+            </button>
           </div>
-        )}
 
         {popup.notes && (
           <div className="mt-2 text-[13px] text-muted">{popup.notes}</div>
