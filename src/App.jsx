@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DateTime } from 'luxon';
 import Header from './components/Header.jsx';
 import FilterChips from './components/FilterChips.jsx';
 import MapView from './components/Map.jsx';
@@ -10,6 +11,7 @@ import SortToggle from './components/SortToggle.jsx';
 import MapLegend from './components/MapLegend.jsx';
 import { usePopups } from './hooks/usePopups.js';
 import { useGeolocation } from './hooks/useGeolocation.js';
+import { useSavedPopups } from './hooks/useSavedPopups.js';
 import { filterPopups, FILTERS } from './lib/dateFilters.js';
 import { distanceMeters } from './lib/geo.js';
 
@@ -86,6 +88,7 @@ export default function App() {
 
   const geo = useGeolocation();
   const [flyToUserSeq, setFlyToUserSeq] = useState(0);
+  const { saved, isSaved, toggle: toggleSaved } = useSavedPopups();
 
   useEffect(() => {
     const measure = () => {
@@ -106,20 +109,32 @@ export default function App() {
     [allPopups, filter, customRange],
   );
 
+  // In saved mode we bypass the date filter entirely and show every saved
+  // pop-up (past and future). Otherwise apply the active date filter, and
+  // optionally sort by distance from the user.
   const sorted = useMemo(() => {
+    if (sortMode === 'saved') {
+      return allPopups
+        .filter((p) => saved.has(p.id))
+        .slice()
+        .sort((a, b) => a.start.toMillis() - b.start.toMillis());
+    }
     if (sortMode !== 'distance' || !geo.coord) return filtered;
     return [...filtered].sort(
       (a, b) =>
         distanceMeters(geo.coord, [a.lat, a.lng]) -
         distanceMeters(geo.coord, [b.lat, b.lng]),
     );
-  }, [filtered, sortMode, geo.coord]);
+  }, [sortMode, allPopups, saved, filtered, geo.coord]);
+
+  // "Already happened" check — anything whose end time is in the past.
+  const isPast = useCallback((p) => p.end < DateTime.now(), []);
 
   useEffect(() => {
-    if (selectedId && !filtered.some((p) => p.id === selectedId)) {
+    if (selectedId && !sorted.some((p) => p.id === selectedId)) {
       setSelectedId(null);
     }
-  }, [filtered, selectedId]);
+  }, [sorted, selectedId]);
 
   // Resolve a ?id=... deep link once the popup data is available. If the
   // shared popup falls outside the current filter, widen the filter to a
@@ -235,6 +250,7 @@ export default function App() {
                   value={sortMode}
                   onChange={onSortChange}
                   distanceAvailable={Boolean(geo.coord)}
+                  savedCount={saved.size}
                 />
                 <div className="flex-1 overflow-y-auto">
                   <PopupList
@@ -243,6 +259,14 @@ export default function App() {
                     scrollToId={scrollToId}
                     status={status}
                     onRetry={retry}
+                    isSaved={isSaved}
+                    onToggleSave={toggleSaved}
+                    isPast={sortMode === 'saved' ? isPast : undefined}
+                    emptyMessage={
+                      sortMode === 'saved'
+                        ? 'No saved pop-ups yet. Tap the star on any card to save it.'
+                        : undefined
+                    }
                   />
                 </div>
               </aside>
@@ -335,6 +359,7 @@ export default function App() {
                   value={sortMode}
                   onChange={onSortChange}
                   distanceAvailable={Boolean(geo.coord)}
+                  savedCount={saved.size}
                 />
                 <PopupList
                   popups={sorted}
@@ -342,6 +367,14 @@ export default function App() {
                   scrollToId={scrollToId}
                   status={status}
                   onRetry={retry}
+                  isSaved={isSaved}
+                  onToggleSave={toggleSaved}
+                  isPast={sortMode === 'saved' ? isPast : undefined}
+                  emptyMessage={
+                    sortMode === 'saved'
+                      ? 'No saved pop-ups yet. Tap the star on any card to save it.'
+                      : undefined
+                  }
                 />
               </BottomSheet>
             )}

@@ -1,7 +1,17 @@
 import { useEffect, useRef } from 'react';
 import PopupCard from './PopupCard.jsx';
 
-export default function PopupList({ popups, onSelect, scrollToId, status, onRetry }) {
+export default function PopupList({
+  popups,
+  onSelect,
+  scrollToId,
+  status,
+  onRetry,
+  isSaved,
+  onToggleSave,
+  isPast,
+  emptyMessage,
+}) {
   const refs = useRef({});
 
   useEffect(() => {
@@ -33,7 +43,9 @@ export default function PopupList({ popups, onSelect, scrollToId, status, onRetr
 
   if (popups.length === 0) {
     return (
-      <div className="px-5 py-8 text-ink">No pop-ups happening this week.</div>
+      <div className="px-5 py-8 text-ink">
+        {emptyMessage || 'No pop-ups happening this week.'}
+      </div>
     );
   }
 
@@ -48,6 +60,9 @@ export default function PopupList({ popups, onSelect, scrollToId, status, onRetr
             else delete refs.current[p.id];
           }}
           onClick={onSelect}
+          isSaved={isSaved ? isSaved(p.id) : false}
+          onToggleSave={onToggleSave}
+          isPast={isPast ? isPast(p) : false}
         />
       ))}
     </div>

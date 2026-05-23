@@ -1,7 +1,7 @@
-const ORDER = ['date', 'distance'];
-const LABELS = { date: 'Date', distance: 'Distance' };
+const ORDER = ['date', 'distance', 'saved'];
+const LABELS = { date: 'Date', distance: 'Distance', saved: 'Saved' };
 
-export default function SortToggle({ value, onChange, distanceAvailable }) {
+export default function SortToggle({ value, onChange, distanceAvailable, savedCount }) {
   return (
     <div
       className="bg-white border-b border-hair flex items-center px-5 gap-5"
@@ -12,6 +12,10 @@ export default function SortToggle({ value, onChange, distanceAvailable }) {
       {ORDER.map((key) => {
         const active = value === key;
         const disabled = key === 'distance' && !distanceAvailable;
+        const label =
+          key === 'saved' && typeof savedCount === 'number'
+            ? `${LABELS[key]} (${savedCount})`
+            : LABELS[key];
         return (
           <button
             key={key}
@@ -28,7 +32,7 @@ export default function SortToggle({ value, onChange, distanceAvailable }) {
                 : 'text-muted font-normal')
             }
           >
-            {LABELS[key]}
+            {label}
             {active && (
               <span
                 aria-hidden="true"

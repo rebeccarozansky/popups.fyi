@@ -65,6 +65,17 @@ function ShareIcon() {
   );
 }
 
+// Hand-drawn 5-point star. Slightly off-symmetric points so it reads as
+// sketched, not geometric. `filled` swaps to a solid ink fill for the saved
+// state.
+function StarIcon({ filled }) {
+  return (
+    <svg {...ICON_STROKE} fill={filled ? '#0A1628' : 'none'}>
+      <path d="M12 3.6 C 12.4 4.6 13.5 7 14 7.9 C 15.1 8.1 17.7 8.4 18.9 8.6 C 18.1 9.5 16.3 11.3 15.5 12.1 C 15.7 13.2 16.2 16 16.4 17.1 C 15.4 16.6 13 15.3 12 14.8 C 11 15.3 8.6 16.6 7.6 17.2 C 7.8 16 8.3 13.2 8.5 12.1 C 7.7 11.3 5.9 9.5 5.1 8.6 C 6.3 8.4 8.9 8.1 10 8 C 10.5 7 11.6 4.6 12 3.6 Z" />
+    </svg>
+  );
+}
+
 function shareUrlFor(popup) {
   const url = new URL(window.location.href);
   // Strip existing query so the share link is clean and unambiguous.
@@ -101,11 +112,9 @@ async function sharePopup(popup) {
 }
 
 function mapsUrlFor(popup) {
-  // Prefer a human address (more accurate pin + name), fall back to lat/lng.
-  const label = [popup.location_name, popup.address].filter(Boolean).join(' ');
-  if (label) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
-  }
+  // Always use the lat/lng from the sheet — that's the source of truth and
+  // matches the pin shown on our map. Address strings sometimes resolve to
+  // the wrong place in Google Maps (chain locations, ambiguous names, etc.).
   if (popup.lat != null && popup.lng != null) {
     return `https://www.google.com/maps/search/?api=1&query=${popup.lat},${popup.lng}`;
   }
@@ -116,7 +125,10 @@ function stop(e) {
   e.stopPropagation();
 }
 
-const PopupCard = forwardRef(function PopupCard({ popup, onClick }, ref) {
+const PopupCard = forwardRef(function PopupCard(
+  { popup, onClick, isSaved, onToggleSave, isPast },
+  ref,
+) {
   const mapsUrl = mapsUrlFor(popup);
   return (
     <button
@@ -135,6 +147,11 @@ const PopupCard = forwardRef(function PopupCard({ popup, onClick }, ref) {
 
         <div className="mt-1 text-[13px] text-muted">
           {formatCardDateTime(popup)}
+          {isPast && (
+            <span className="ml-2 inline-block uppercase tracking-wide text-[11px] font-semibold text-faint border border-hair px-1.5 py-0.5">
+              Already happened
+            </span>
+          )}
         </div>
 
         {(popup.neighborhood || (popup.categories && popup.categories.length > 0)) && (
@@ -194,6 +211,20 @@ const PopupCard = forwardRef(function PopupCard({ popup, onClick }, ref) {
             >
               <ShareIcon />
             </button>
+            {onToggleSave && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  stop(e);
+                  onToggleSave(popup.id);
+                }}
+                aria-label={isSaved ? 'Unsave this pop-up' : 'Save this pop-up'}
+                aria-pressed={!!isSaved}
+                className="w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt"
+              >
+                <StarIcon filled={!!isSaved} />
+              </button>
+            )}
           </div>
 
         {popup.notes && (
