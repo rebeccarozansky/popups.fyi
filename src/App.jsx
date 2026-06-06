@@ -69,8 +69,10 @@ export default function App() {
   const initial = useRef(readUrlState()).current;
   const [filter, setFilter] = useState(initial.filter);
   const [customRange, setCustomRange] = useState(initial.customRange);
-  // Deep link: ?id=<popup.id> selects + focuses that pop-up once data loads.
-  const pendingSharedId = useRef(initial.sharedId);
+  // Deep link: ?id=<popup.id>. Held in state (not a ref) so the shared pop-up
+  // can be force-injected into the list/map even when the active date filter
+  // — or the pop-up having already ended — would normally hide it.
+  const [sharedId, setSharedId] = useState(initial.sharedId);
 
   const [selectedId, setSelectedId] = useState(null);
   const [mapSelectSeq, setMapSelectSeq] = useState(0);
@@ -113,19 +115,30 @@ export default function App() {
   // pop-up (past and future). Otherwise apply the active date filter, and
   // optionally sort by distance from the user.
   const sorted = useMemo(() => {
+    let list;
     if (sortMode === 'saved') {
-      return allPopups
+      list = allPopups
         .filter((p) => saved.has(p.id))
         .slice()
         .sort((a, b) => a.start.toMillis() - b.start.toMillis());
+    } else if (sortMode === 'distance' && geo.coord) {
+      list = [...filtered].sort(
+        (a, b) =>
+          distanceMeters(geo.coord, [a.lat, a.lng]) -
+          distanceMeters(geo.coord, [b.lat, b.lng]),
+      );
+    } else {
+      list = filtered;
     }
-    if (sortMode !== 'distance' || !geo.coord) return filtered;
-    return [...filtered].sort(
-      (a, b) =>
-        distanceMeters(geo.coord, [a.lat, a.lng]) -
-        distanceMeters(geo.coord, [b.lat, b.lng]),
-    );
-  }, [sortMode, allPopups, saved, filtered, geo.coord]);
+    // Deep-link override: keep a shared pop-up visible on the list + map even
+    // if the active filter would hide it — most importantly, after it has
+    // ended. Without this, opening a link to a finished pop-up shows nothing.
+    if (sharedId && !list.some((p) => p.id === sharedId)) {
+      const shared = allPopups.find((p) => p.id === sharedId);
+      if (shared) list = [shared, ...list];
+    }
+    return list;
+  }, [sortMode, allPopups, saved, filtered, geo.coord, sharedId]);
 
   // "Already happened" check — anything whose end time is in the past.
   const isPast = useCallback((p) => p.end < DateTime.now(), []);
@@ -136,36 +149,40 @@ export default function App() {
     }
   }, [sorted, selectedId]);
 
-  // Resolve a ?id=... deep link once the popup data is available. If the
-  // shared popup falls outside the current filter, widen the filter to a
-  // single-day custom range covering its start date so it actually shows up.
+  // Resolve a ?id=... deep link once the popup data is available. We do NOT
+  // touch the date filter here — the `sorted` memo injects the shared pop-up
+  // so it shows even after it has ended. We just select + focus it. (The old
+  // approach switched to a custom date range, which both failed for finished
+  // pop-ups and caused an infinite render loop that blanked the page.)
   useEffect(() => {
-    const sharedId = pendingSharedId.current;
     if (!sharedId || allPopups.length === 0) return;
     const target = allPopups.find((p) => p.id === sharedId);
     if (!target) {
-      pendingSharedId.current = null;
+      setSharedId(null);
       return;
     }
-    const inFiltered = filtered.some((p) => p.id === sharedId);
-    if (!inFiltered) {
-      const day = target.start.toISODate();
-      setFilter('custom');
-      setCustomRange({ from: day, to: day });
-      // Wait for the filter change to flow through before selecting.
-      return;
-    }
-    pendingSharedId.current = null;
     setSelectedId(sharedId);
     setScrollToId(sharedId);
     setMapSelectSeq((n) => n + 1);
     if (!isDesktop) setSnapTo('half');
-    // Strip the id from the URL so reloads from in-app navigation don't
-    // re-trigger this, but a fresh visit with the link still works.
+    // Strip the id from the URL so reloads / in-app navigation don't re-fire
+    // this, while a fresh visit to the shared link still works.
     const url = new URL(window.location.href);
     url.searchParams.delete('id');
     window.history.replaceState(null, '', url);
-  }, [allPopups, filtered, isDesktop]);
+    // sharedId stays set so the pop-up remains visible until the user starts
+    // browsing (changes filter/sort), at which point the handlers clear it.
+  }, [sharedId, allPopups, isDesktop]);
+
+  // Clearing the deep-link override once the user starts browsing normally.
+  const onFilterChange = useCallback((next) => {
+    setSharedId(null);
+    setFilter(next);
+  }, []);
+  const onCustomRangeChange = useCallback((next) => {
+    setSharedId(null);
+    setCustomRange(next);
+  }, []);
 
   const onCardSelect = useCallback(
     (popup) => {
@@ -201,6 +218,8 @@ export default function App() {
 
   const onSortChange = useCallback(
     (mode) => {
+      // Switching sort means the user is browsing — drop the deep-link override.
+      setSharedId(null);
       if (mode === 'distance' && !geo.coord) geo.request();
       setSortMode(mode);
     },
@@ -233,9 +252,9 @@ export default function App() {
       <Header />
       <FilterChips
         value={filter}
-        onChange={setFilter}
+        onChange={onFilterChange}
         customRange={customRange}
-        onCustomRangeChange={setCustomRange}
+        onCustomRangeChange={onCustomRangeChange}
       />
 
       <main className={isDesktop ? 'flex-1 overflow-hidden flex flex-row' : 'relative flex-1 overflow-hidden'}>
@@ -261,7 +280,7 @@ export default function App() {
                     onRetry={retry}
                     isSaved={isSaved}
                     onToggleSave={toggleSaved}
-                    isPast={sortMode === 'saved' ? isPast : undefined}
+                    isPast={isPast}
                     emptyMessage={
                       sortMode === 'saved'
                         ? 'No saved pop-ups yet. Tap the star on any card to save it.'
@@ -369,7 +388,7 @@ export default function App() {
                   onRetry={retry}
                   isSaved={isSaved}
                   onToggleSave={toggleSaved}
-                  isPast={sortMode === 'saved' ? isPast : undefined}
+                  isPast={isPast}
                   emptyMessage={
                     sortMode === 'saved'
                       ? 'No saved pop-ups yet. Tap the star on any card to save it.'
