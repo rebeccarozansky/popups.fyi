@@ -191,6 +191,23 @@ function FlyTo({ coord, seq }) {
   return null;
 }
 
+// Recenter when the user switches cities. Skips the first run so we don't
+// animate away from the view MapContainer just mounted with.
+function CityView({ center, zoom }) {
+  const map = useMap();
+  const first = useRef(true);
+  const lat = center[0];
+  const lng = center[1];
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    map.flyTo([lat, lng], zoom, { duration: 0.6 });
+  }, [lat, lng, zoom, map]);
+  return null;
+}
+
 // Call invalidateSize whenever the container dimensions change (layout switch,
 // expand toggle, breakpoint flip). Leaflet doesn't always pick this up on its
 // own when the parent flex layout reshuffles.
@@ -211,11 +228,13 @@ export default function MapView({
   flyToUserSeq,
   onMarkerSelect,
   resizeKey,
+  center = DEFAULT_CENTER,
+  zoom = DEFAULT_ZOOM,
 }) {
   return (
     <MapContainer
-      center={DEFAULT_CENTER}
-      zoom={DEFAULT_ZOOM}
+      center={center}
+      zoom={zoom}
       zoomControl={false}
       className="w-full h-full"
       preferCanvas={false}
@@ -234,6 +253,7 @@ export default function MapView({
         onMarkerSelect={onMarkerSelect}
       />
       <FlyTo coord={userCoord} seq={flyToUserSeq} />
+      <CityView center={center} zoom={zoom} />
       <MapResizer trigger={resizeKey} />
     </MapContainer>
   );

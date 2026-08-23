@@ -17,6 +17,10 @@ The dev server runs against `public/popups.sample.csv` by default, so you don't 
 VITE_SHEET_CSV_URL=https://docs.google.com/spreadsheets/d/e/.../pub?gid=0&single=true&output=csv
 ```
 
+## Manual pop-up scraping helper
+
+There is a standalone Python helper in [tools/popup-scraper](tools/popup-scraper) for manually collecting upcoming Seattle pop-up candidates from Hotplate, Eventbrite, saved Instagram/Facebook/Threads captions, JSON-LD event pages, and public calendar feeds. It is not part of the website bundle. See [tools/popup-scraper/README.md](tools/popup-scraper/README.md) for setup, time-frame options, and output files.
+
 ## Setting up the live data source
 
 1. **Create a Google Sheet** with the column headers listed in the schema below (exact names, lowercase, including underscores).
@@ -66,14 +70,23 @@ If you'd rather deploy to `username.github.io/popups.fyi/` instead of a custom d
 
 Empty optional fields render nothing — no "N/A", no empty placeholders.
 
-## Adding new cities later
+## Cities
 
-The schema already supports `city`, so adding new cities is a data-only change in the live sheet — no code changes are required for the pop-ups to show up on the map. The only Seattle-specific code is:
+The site is served per city at `popups.fyi/<slug>`:
 
-- `DEFAULT_CENTER` and `DEFAULT_ZOOM` in `src/lib/config.js` (the initial map view before geolocation runs)
-- `ANCHOR_TIMEZONE` in `src/lib/config.js` (used to interpret "today" / "this weekend" / "this week" filters)
+| URL                        | City                                    |
+| -------------------------- | --------------------------------------- |
+| `popups.fyi`               | Seattle (default — the bare domain)     |
+| `popups.fyi/seattle`       | Seattle                                 |
+| `popups.fyi/sanfrancisco`  | San Francisco                           |
 
-A future multi-city version would either let the user pick a city or derive the anchor zone from the browser locale.
+The city name in the wordmark (`popups.fyi/<city>`) is a dropdown; picking a city pushes the new path and keeps the active date filter. `/san-francisco` and `/sf` redirect to the canonical slug, and an unknown path falls back to the default city.
+
+A pop-up is assigned to a city by its `city` cell when that name is a known alias, otherwise by whether its coordinates fall inside the city's metro bounding box — so suburb rows (Bothell, Renton, Oakland, …) stay attached to the right metro without extra bookkeeping.
+
+To add another city, append an entry to `CITIES` in [src/lib/cities.js](src/lib/cities.js) with its slug, map center, timezone, metro bounds, and city-name aliases. No other code changes are needed.
+
+Because GitHub Pages has no server-side rewrites, the build writes `dist/404.html` as a copy of `index.html` (see the `spaFallback` plugin in [vite.config.js](vite.config.js)) so a direct hit on `popups.fyi/seattle` boots the app instead of 404-ing.
 
 ## Caching
 

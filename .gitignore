@@ -4,3 +4,6 @@ dist
 *.log
 .env
 .env.local
+
+# Local-only pop-up entry helper (personal utility, like the scraper's local files — not part of the site bundle)
+tools/popup-entry/

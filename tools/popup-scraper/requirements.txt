@@ -1,0 +1,14 @@
+# popups.fyi scraper dependencies (Python 3.9+)
+requests>=2.25
+PyYAML>=5.4
+beautifulsoup4>=4.9
+python-dateutil>=2.8
+tzdata>=2023.3  # required for IANA time zones on Windows (zoneinfo)
+
+# OPTIONAL: enables pulling exact Hotplate drop dates/times/locations by
+# rendering the storefront in a headless browser. Without it, the scraper
+# still confirms which Hotplate vendors are active and lists them for you to
+# eyeball manually. To enable:
+#   pip install playwright
+#   playwright install chromium
+# playwright>=1.40

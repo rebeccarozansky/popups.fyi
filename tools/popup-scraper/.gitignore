@@ -1,0 +1,16 @@
+# Local, user-specific config (copy of config.example.yaml)
+config.yaml
+meta-posts.csv
+meta-posts.yaml
+meta-posts.yml
+
+# Generated output + geocode cache
+output/
+*.generated.csv
+*.leads.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

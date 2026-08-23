@@ -1,0 +1,193 @@
+# popups.fyi scraper configuration  (copy this file to `config.yaml`)
+# ---------------------------------------------------------------------------
+# `python scrape.py` reads `config.yaml` by default. Edit freely — everything
+# except a couple of defaults is optional. Comments explain each section.
+
+city: Seattle
+timezone: America/Los_Angeles
+
+geocode:
+  enabled: true
+  # Nominatim (OpenStreetMap) asks that automated users identify themselves.
+  # Put a real email here so lookups aren't rate-limited/blocked.
+  user_agent_email: you@example.com
+
+# ---------------------------------------------------------------------------
+# VENUES that frequently host pop-ups.
+# Listing a venue here means any event at it is auto-filled with exact
+# coordinates + neighborhood — you never have to look those up again. The
+# scraper matches venue names fuzzily (e.g. "... at Parlour" -> Parlour).
+# (Seeded from your existing sheet; add/adjust as you learn new spots.)
+# ---------------------------------------------------------------------------
+venues:
+  - name: Parlour
+    address: "Pioneer Square, Seattle, WA"
+    neighborhood: Pioneer Square
+    lat: 47.6017
+    lng: -122.3327
+  - name: Nakagawa Japanese Restaurant
+    address: "Bothell, WA"
+    neighborhood: Bothell
+    city: Bothell
+    lat: 47.7623
+    lng: -122.2054
+  - name: Hiroshi's Take Out & Deli
+    aliases: ["Hiroshi's"]
+    address: "Beacon Hill, Seattle, WA"
+    neighborhood: Beacon Hill
+    lat: 47.5790
+    lng: -122.3110
+  - name: Armadillo Bakehouse
+    address: "4611 36th Ave SW, Seattle, WA"
+    neighborhood: West Seattle
+    lat: 47.5586
+    lng: -122.3833
+  - name: Miero Coffee Bar
+    address: "Chinatown-ID, Seattle, WA"
+    neighborhood: Chinatown-ID
+    lat: 47.5980
+    lng: -122.3240
+  - name: Volunteer Park Cafe & Pantry
+    aliases: ["Volunteer Park Cafe"]
+    address: "1501 17th Ave E, Seattle, WA"
+    neighborhood: Capitol Hill
+    lat: 47.6320
+    lng: -122.3115
+  # A few real Seattle markets that regularly host food vendors (verify/adjust
+  # coordinates as you like — these are approximate).
+  - name: Fremont Sunday Market
+    address: "N 34th St & Phinney Ave N, Seattle, WA"
+    neighborhood: Fremont
+    lat: 47.6510
+    lng: -122.3486
+  - name: Ballard Farmers Market
+    address: "Ballard Ave NW, Seattle, WA"
+    neighborhood: Ballard
+    lat: 47.6685
+    lng: -122.3835
+  - name: Capitol Hill Farmers Market
+    address: "Broadway E & E Denny Way, Seattle, WA"
+    neighborhood: Capitol Hill
+    lat: 47.6190
+    lng: -122.3208
+  - name: University District Farmers Market
+    aliases: ["U District Farmers Market"]
+    address: "University Way NE & NE 50th St, Seattle, WA"
+    neighborhood: University District
+    lat: 47.6656
+    lng: -122.3130
+
+# ---------------------------------------------------------------------------
+# VENDORS you track. Each may carry a hotplate handle, instagram, website,
+# default category, and a "home_venue" (matches a venue name above).
+# The `hotplate` adapter (see sources) will confirm which of these are active
+# and surface them for your window; with browser mode on it also reads their
+# drop dates. (Seeded from your sheet — VERIFY the hotplate handles: only
+# `armadillobakehouse` was confirmed live at authoring time.)
+# ---------------------------------------------------------------------------
+vendors:
+  - name: Armadillo Bakehouse
+    category: bakery
+    hotplate: armadillobakehouse            # confirmed live
+    instagram: https://instagram.com/armadillobakehouse
+    home_venue: Armadillo Bakehouse
+  - name: Béo Béo Bakery
+    category: bakery
+    instagram: https://instagram.com/beobeobakery
+    home_venue: Parlour
+  - name: Nicho's Matcha Cafe
+    category: matcha
+    instagram: https://instagram.com/nichosmatcha
+  - name: Cafe 86 x Bread Baby
+    category: coffee
+    instagram: https://instagram.com/cafe86seattle
+  - name: Rolled Flour
+    category: bakery
+    hotplate: rolledflour                    # example — confirm this handle
+    instagram: https://instagram.com/rolledflour
+    home_venue: Miero Coffee Bar
+  - name: Good Leavens
+    category: bakery
+    hotplate: goodleavens                    # example — confirm this handle
+    instagram: https://instagram.com/goodleavens
+    home_venue: Volunteer Park Cafe & Pantry
+
+# ---------------------------------------------------------------------------
+# SOURCES: where dated events are auto-collected from. Add/remove freely.
+# Order doesn't matter; duplicates across sources are merged.
+# ---------------------------------------------------------------------------
+sources:
+  # Hotplate storefronts for the vendors above. No `urls` needed — it reads
+  # your `vendors` list. Set use_browser: true (and install Playwright) to
+  # pull exact drop dates; otherwise it lists active vendors to check.
+  - type: hotplate
+    use_browser: false
+
+  # Eventbrite discovery pages -> individual event pages (dates + address).
+  # Great for markets, tastings, and larger food/drink pop-ups. Add any
+  # Eventbrite search URL you like.
+  - type: eventbrite_search
+    urls:
+      - https://www.eventbrite.com/d/wa--seattle/pop-up/
+      - https://www.eventbrite.com/d/wa--seattle/food-and-drink--events/
+    # Eventbrite can be noisy. These filters keep the generated CSV focused on
+    # food/drink/market pop-ups; edit them if you want a wider or narrower net.
+    include_keywords:
+      - bakery
+      - pastry
+      - coffee
+      - cafe
+      - matcha
+      - food
+      - dinner
+      - brunch
+      - supper
+      - lunch
+      - dessert
+      - farmers market
+      - tasting
+      - chef
+      - restaurant
+      - wine
+      - beer
+      - cocktail
+      - ramen
+      - taco
+      - dumpling
+      - boba
+      - ice cream
+    exclude_keywords:
+      - webinar
+      - cold calling
+      - sales funnel
+      - real estate
+      - networking
+      - career
+      - startup
+      - marketing
+      - investment
+      - conference
+      - seminar
+
+  # Instagram/Facebook/Threads posts are usually not reliably scrapeable
+  # without official Meta API access. This source reads captions you save into
+  # a local CSV/YAML file, then extracts dates/times/known venues from them.
+  # Copy meta-posts.example.csv to meta-posts.csv and paste promising posts.
+  - type: meta_posts
+    files:
+      - meta-posts.csv
+    default_start_time: "10:00"
+    default_duration_hours: 4
+    emit_undated_leads: true
+
+  # Any page(s) that embed schema.org Event JSON-LD (Squarespace/Wix venue
+  # calendars, vendor sites, etc.). Paste specific URLs here.
+  - type: jsonld
+    urls: []
+    # - https://somevenue.com/events
+
+  # Public .ics calendar feeds (Google Calendar "public address in iCal
+  # format", Squarespace event feeds, etc.). Weekly residencies are expanded.
+  - type: ical
+    urls: []
+    # - https://calendar.google.com/calendar/ical/xxxxx/public/basic.ics

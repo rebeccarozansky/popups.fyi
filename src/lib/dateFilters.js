@@ -7,8 +7,8 @@ export const FILTERS = ['today', 'weekend', 'week', 'custom'];
 export const CUSTOM_MAX_DAYS = 14;
 
 // Anchor "now" used for all comparisons. Pure function -> easy to reason about.
-function anchorNow() {
-  return DateTime.now().setZone(ANCHOR_TIMEZONE);
+function anchorNow(zone = ANCHOR_TIMEZONE) {
+  return DateTime.now().setZone(zone);
 }
 
 // Returns true if the popup's end is still in the future (in its own tz).
@@ -17,8 +17,8 @@ export function isUpcoming(popup, now = DateTime.now()) {
 }
 
 // "Today": event's start is on the current calendar date in the anchor tz.
-function isToday(popup, now) {
-  const startLocal = popup.start.setZone(ANCHOR_TIMEZONE);
+function isToday(popup, now, zone) {
+  const startLocal = popup.start.setZone(zone);
   return startLocal.hasSame(now, 'day');
 }
 
@@ -50,20 +50,20 @@ function weekendRange(now) {
   return { start, end };
 }
 
-function isThisWeekend(popup, now) {
+function isThisWeekend(popup, now, zone) {
   const { start, end } = weekendRange(now);
-  const startLocal = popup.start.setZone(ANCHOR_TIMEZONE);
+  const startLocal = popup.start.setZone(zone);
   return startLocal >= start && startLocal <= end;
 }
 
 // "This week": from now through end-of-day Sunday in anchor tz.
 // Past-event filtering (end < now) already happens upstream, so events that
 // are currently in progress show up naturally.
-function isThisWeek(popup, now) {
+function isThisWeek(popup, now, zone) {
   const dow = now.weekday; // 1..7, where 7=Sun
   const daysUntilSunday = 7 - dow; // Sun=0
   const windowEnd = now.plus({ days: daysUntilSunday }).endOf('day');
-  const startLocal = popup.start.setZone(ANCHOR_TIMEZONE);
+  const startLocal = popup.start.setZone(zone);
   return startLocal <= windowEnd;
 }
 
@@ -71,8 +71,9 @@ function isThisWeek(popup, now) {
 // always hidden, regardless of which filter is active.
 // `customRange` is { from, to } as 'YYYY-MM-DD' strings (anchor-tz dates),
 // only consulted when filter === 'custom'.
-export function filterPopups(popups, filter, customRange) {
-  const now = anchorNow();
+// `zone` anchors the relative windows to the active city's timezone.
+export function filterPopups(popups, filter, customRange, zone = ANCHOR_TIMEZONE) {
+  const now = anchorNow(zone);
   const realNow = DateTime.now();
   let fn;
   if (filter === 'today') {
@@ -80,24 +81,24 @@ export function filterPopups(popups, filter, customRange) {
   } else if (filter === 'weekend') {
     fn = isThisWeekend;
   } else if (filter === 'custom') {
-    const range = validateCustomRange(customRange);
+    const range = validateCustomRange(customRange, zone);
     if (!range) return [];
-    fn = (p) => isInCustomRange(p, range);
+    fn = (p) => isInCustomRange(p, range, zone);
   } else {
     fn = isThisWeek;
   }
   return popups
     .filter((p) => isUpcoming(p, realNow))
-    .filter((p) => fn(p, now))
+    .filter((p) => fn(p, now, zone))
     .sort((a, b) => a.start.toMillis() - b.start.toMillis());
 }
 
 // Returns { startDt, endDt } in anchor tz if the range is valid (both dates
 // parse, end >= start, span <= CUSTOM_MAX_DAYS). Otherwise null.
-export function validateCustomRange(range) {
+export function validateCustomRange(range, zone = ANCHOR_TIMEZONE) {
   if (!range || !range.from || !range.to) return null;
-  const startDt = DateTime.fromISO(range.from, { zone: ANCHOR_TIMEZONE }).startOf('day');
-  const endDt = DateTime.fromISO(range.to, { zone: ANCHOR_TIMEZONE }).endOf('day');
+  const startDt = DateTime.fromISO(range.from, { zone }).startOf('day');
+  const endDt = DateTime.fromISO(range.to, { zone }).endOf('day');
   if (!startDt.isValid || !endDt.isValid) return null;
   if (endDt < startDt) return null;
   const days = endDt.startOf('day').diff(startDt, 'days').days + 1;
@@ -105,8 +106,8 @@ export function validateCustomRange(range) {
   return { startDt, endDt };
 }
 
-function isInCustomRange(popup, range) {
-  const startLocal = popup.start.setZone(ANCHOR_TIMEZONE);
+function isInCustomRange(popup, range, zone) {
+  const startLocal = popup.start.setZone(zone);
   return startLocal >= range.startDt && startLocal <= range.endDt;
 }
 

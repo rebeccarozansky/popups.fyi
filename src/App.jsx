@@ -9,9 +9,12 @@ import NearMeButton from './components/NearMeButton.jsx';
 import ExpandMapButton from './components/ExpandMapButton.jsx';
 import SortToggle from './components/SortToggle.jsx';
 import MapLegend from './components/MapLegend.jsx';
+import SubmitPopupModal from './components/SubmitPopupModal.jsx';
 import { usePopups } from './hooks/usePopups.js';
 import { useGeolocation } from './hooks/useGeolocation.js';
 import { useSavedPopups } from './hooks/useSavedPopups.js';
+import { useCityRoute } from './hooks/useCityRoute.js';
+import { cityForPopup, popupsInCity } from './lib/cities.js';
 import { filterPopups, FILTERS } from './lib/dateFilters.js';
 import { distanceMeters } from './lib/geo.js';
 
@@ -64,7 +67,12 @@ function useIsDesktop() {
 }
 
 export default function App() {
-  const { popups: allPopups, status, retry } = usePopups();
+  const { popups: everyPopup, status, retry } = usePopups();
+  const { city, cities, selectCity } = useCityRoute();
+
+  // Everything downstream (filters, saved list, map, deep links) operates on
+  // the active city's pop-ups only.
+  const allPopups = useMemo(() => popupsInCity(everyPopup, city), [everyPopup, city]);
 
   const initial = useRef(readUrlState()).current;
   const [filter, setFilter] = useState(initial.filter);
@@ -80,6 +88,7 @@ export default function App() {
   const [snapTo, setSnapTo] = useState(null);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [sortMode, setSortMode] = useState('date');
+  const [submitOpen, setSubmitOpen] = useState(false);
 
   const isDesktop = useIsDesktop();
 
@@ -107,8 +116,8 @@ export default function App() {
   }, [filter, customRange]);
 
   const filtered = useMemo(
-    () => filterPopups(allPopups, filter, customRange),
-    [allPopups, filter, customRange],
+    () => filterPopups(allPopups, filter, customRange, city.timezone),
+    [allPopups, filter, customRange, city.timezone],
   );
 
   // In saved mode we bypass the date filter entirely and show every saved
@@ -155,10 +164,17 @@ export default function App() {
   // approach switched to a custom date range, which both failed for finished
   // pop-ups and caused an infinite render loop that blanked the page.)
   useEffect(() => {
-    if (!sharedId || allPopups.length === 0) return;
-    const target = allPopups.find((p) => p.id === sharedId);
+    if (!sharedId || everyPopup.length === 0) return;
+    const target = everyPopup.find((p) => p.id === sharedId);
     if (!target) {
       setSharedId(null);
+      return;
+    }
+    // A shared link may point at a pop-up in another city — follow it there
+    // and let this effect re-run once the route has switched.
+    const targetCity = cityForPopup(target);
+    if (targetCity && targetCity.slug !== city.slug) {
+      selectCity(targetCity.slug);
       return;
     }
     setSelectedId(sharedId);
@@ -172,7 +188,7 @@ export default function App() {
     window.history.replaceState(null, '', url);
     // sharedId stays set so the pop-up remains visible until the user starts
     // browsing (changes filter/sort), at which point the handlers clear it.
-  }, [sharedId, allPopups, isDesktop]);
+  }, [sharedId, everyPopup, isDesktop, city, selectCity]);
 
   // Clearing the deep-link override once the user starts browsing normally.
   const onFilterChange = useCallback((next) => {
@@ -235,11 +251,20 @@ export default function App() {
       ? 'Loading'
       : `${sorted.length} pop-up${sorted.length === 1 ? '' : 's'}`;
 
+  // City-aware empty copy so a city with no upcoming rows doesn't read as a
+  // loading failure.
+  const emptyMessage =
+    sortMode === 'saved'
+      ? 'No saved pop-ups yet. Tap the star on any card to save it.'
+      : allPopups.length === 0
+      ? `No pop-ups listed in ${city.name} yet.`
+      : `No pop-ups happening in ${city.name} this week.`;
+
   const topAreaHeight =
     HEADER_HEIGHT + CHIPS_HEIGHT + (filter === 'custom' ? CUSTOM_PANEL_HEIGHT : 0);
 
   // Trigger Leaflet's invalidateSize when the layout shape changes.
-  const resizeKey = `${isDesktop ? 'd' : 'm'}-${mapExpanded ? 'x' : 'n'}-${filter === 'custom' ? 'c' : 's'}`;
+  const resizeKey = `${isDesktop ? 'd' : 'm'}-${mapExpanded ? 'x' : 'n'}-${filter === 'custom' ? 'c' : 's'}-${city.slug}`;
 
   const buttonsBottomOffset = isDesktop
     ? 0
@@ -249,7 +274,12 @@ export default function App() {
 
   return (
     <div ref={shellRef} className="app-shell h-screen flex flex-col">
-      <Header />
+      <Header
+        city={city}
+        cities={cities}
+        onCityChange={selectCity}
+        onSubmitClick={() => setSubmitOpen(true)}
+      />
       <FilterChips
         value={filter}
         onChange={onFilterChange}
@@ -281,11 +311,7 @@ export default function App() {
                     isSaved={isSaved}
                     onToggleSave={toggleSaved}
                     isPast={isPast}
-                    emptyMessage={
-                      sortMode === 'saved'
-                        ? 'No saved pop-ups yet. Tap the star on any card to save it.'
-                        : undefined
-                    }
+                    emptyMessage={emptyMessage}
                   />
                 </div>
               </aside>
@@ -300,6 +326,8 @@ export default function App() {
                   flyToUserSeq={flyToUserSeq}
                   onMarkerSelect={onMarkerSelect}
                   resizeKey={resizeKey}
+                  center={city.center}
+                  zoom={city.zoom}
                 />
               </div>
 
@@ -339,6 +367,8 @@ export default function App() {
                 flyToUserSeq={flyToUserSeq}
                 onMarkerSelect={onMarkerSelect}
                 resizeKey={resizeKey}
+                center={city.center}
+                zoom={city.zoom}
               />
             </div>
 
@@ -389,17 +419,15 @@ export default function App() {
                   isSaved={isSaved}
                   onToggleSave={toggleSaved}
                   isPast={isPast}
-                  emptyMessage={
-                    sortMode === 'saved'
-                      ? 'No saved pop-ups yet. Tap the star on any card to save it.'
-                      : undefined
-                  }
+                  emptyMessage={emptyMessage}
                 />
               </BottomSheet>
             )}
           </>
         )}
       </main>
+
+      <SubmitPopupModal open={submitOpen} onClose={() => setSubmitOpen(false)} />
     </div>
   );
 }
