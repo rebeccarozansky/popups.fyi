@@ -191,18 +191,19 @@ function FlyTo({ coord, seq }) {
   return null;
 }
 
-// Recenter when the user switches cities. Skips the first run so we don't
-// animate away from the view MapContainer just mounted with.
+// Recenter when the user switches cities. Tracks the last view it acted on
+// rather than a "first run" flag: StrictMode double-invokes effects, which
+// would flip a boolean flag on the first pass and then fly on mount — before
+// the container has a size, which makes Leaflet throw on a NaN LatLng.
 function CityView({ center, zoom }) {
   const map = useMap();
-  const first = useRef(true);
   const lat = center[0];
   const lng = center[1];
+  const applied = useRef(`${lat},${lng},${zoom}`);
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    const key = `${lat},${lng},${zoom}`;
+    if (applied.current === key) return;
+    applied.current = key;
     map.flyTo([lat, lng], zoom, { duration: 0.6 });
   }, [lat, lng, zoom, map]);
   return null;

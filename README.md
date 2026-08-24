@@ -64,7 +64,7 @@ If you'd rather deploy to `username.github.io/popups.fyi/` instead of a custom d
 | `neighborhood`    | string | no       |                                                      |
 | `instagram_url`   | string | no       | full URL                                             |
 | `order_url`       | string | no       | full URL (Hotplate, Square, etc.)                    |
-| `category`        | string | no       | one of `bakery`, `coffee`, `matcha`, `pastry`, `other` |
+| `category`        | string | no       | one or more of `bakery`, `coffee`, `matcha`, `savory`, `other` (comma-separated) |
 | `notes`           | string | no       | short freeform description                           |
 | `image_url`       | string | no       | full URL to a photo                                  |
 

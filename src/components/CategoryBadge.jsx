@@ -2,6 +2,7 @@ export const CATEGORY_DOT_COLORS = {
   bakery: '#A07C5B',
   coffee: '#6B4F3A',
   matcha: '#7A8B5C',
+  savory: '#B15442',
   other: '#9CA3AF',
 };
 

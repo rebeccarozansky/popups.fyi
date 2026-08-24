@@ -31,6 +31,18 @@ const MATCHA_OUTLINE = `
 `;
 const MATCHA_FILL = `<ellipse cx="12" cy="11.4" rx="6.6" ry="1.6" fill="#5C7A32"/>`;
 
+// Hot/savory food. The other icons are two tapered cups and a round cookie,
+// so this is a deliberately wide, shallow bowl with chopsticks angled across
+// it — the diagonals are what keep it readable at marker size, where a
+// plain container silhouette would just read as another cup.
+const SAVORY_OUTLINE = `
+  <path d="M3.8 11.8 Q4.7 20.5 12 20.8 Q19.3 20.5 20.2 11.8"/>
+  <ellipse cx="12" cy="11.8" rx="8.2" ry="1.7"/>
+  <path d="M15.4 3.3 L11.3 10.2"/>
+  <path d="M17.8 4.5 L13.9 10.6"/>
+`;
+const SAVORY_FILL = `<ellipse cx="12" cy="11.8" rx="8.2" ry="1.7" fill="#B15442"/>`;
+
 const OTHER = `
   <path d="M12 4.4 L12 19.6"/>
   <path d="M4.4 12 L19.6 12"/>
@@ -42,6 +54,7 @@ const ICONS = {
   coffee: { outline: COFFEE_OUTLINE, fill: COFFEE_FILL },
   bakery: { outline: BAKERY_OUTLINE, fill: BAKERY_FILL },
   matcha: { outline: MATCHA_OUTLINE, fill: MATCHA_FILL },
+  savory: { outline: SAVORY_OUTLINE, fill: SAVORY_FILL },
   other:  { outline: OTHER, fill: '' },
 };
 

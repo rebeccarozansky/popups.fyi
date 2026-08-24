@@ -169,7 +169,7 @@ export default function SubmitPopupModal({ open, onClose }) {
                 required
                 value={form.name}
                 onChange={set('name')}
-                placeholder="Béo Béo Bakery"
+                placeholder="Pop-up Name"
                 className={fieldCls}
               />
             </label>

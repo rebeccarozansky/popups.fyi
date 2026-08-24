@@ -5,6 +5,7 @@ const ITEMS = [
   { key: 'coffee', label: 'coffee' },
   { key: 'matcha', label: 'matcha' },
   { key: 'bakery', label: 'bakery' },
+  { key: 'savory', label: 'savory' },
   { key: 'other',  label: 'other'  },
 ];
 
