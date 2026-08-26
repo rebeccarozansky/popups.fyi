@@ -18,6 +18,10 @@ import { cityForPopup, popupsInCity } from './lib/cities.js';
 import { filterPopups, FILTERS } from './lib/dateFilters.js';
 import { distanceMeters } from './lib/geo.js';
 
+// Mobile-layout header height. The header grows to 56px at md (768px), which
+// is exactly where the layout switches to desktop and the bottom sheet stops
+// rendering — so the sheet only ever sees the 48px header. Keep the header's
+// md: breakpoint and DESKTOP_MIN_WIDTH in sync or this measurement drifts.
 const HEADER_HEIGHT = 48;
 const CHIPS_HEIGHT = 48;
 const CUSTOM_PANEL_HEIGHT = 56;
@@ -30,7 +34,13 @@ function readUrlState() {
   const from = params.get('from') || '';
   const to = params.get('to') || '';
   const sharedId = params.get('id') || null;
-  return { filter, customRange: { from, to }, sharedId };
+  // "Instagram mode" (?ig=1): a screenshot layout. Clustering is turned off so
+  // every pop-up shows as its own marker, the map fills the frame, and the
+  // interactive chrome (list, map buttons, submit link) is hidden. Read once at
+  // mount and never written back, so it survives filter changes but is only
+  // ever entered deliberately via the URL.
+  const instagramMode = params.get('ig') === '1';
+  return { filter, customRange: { from, to }, sharedId, instagramMode };
 }
 
 function writeUrlState({ filter, customRange }) {
@@ -81,6 +91,7 @@ export default function App() {
   // can be force-injected into the list/map even when the active date filter
   // — or the pop-up having already ended — would normally hide it.
   const [sharedId, setSharedId] = useState(initial.sharedId);
+  const instagramMode = initial.instagramMode;
 
   const [selectedId, setSelectedId] = useState(null);
   const [mapSelectSeq, setMapSelectSeq] = useState(0);
@@ -279,6 +290,7 @@ export default function App() {
         cities={cities}
         onCityChange={selectCity}
         onSubmitClick={() => setSubmitOpen(true)}
+        showSubmit={!instagramMode}
       />
       <FilterChips
         value={filter}
@@ -290,7 +302,7 @@ export default function App() {
       <main className={isDesktop ? 'flex-1 overflow-hidden flex flex-row' : 'relative flex-1 overflow-hidden'}>
         {isDesktop ? (
           <>
-            {!mapExpanded && (
+            {!mapExpanded && !instagramMode && (
               <aside className="w-[420px] shrink-0 border-r border-hair bg-white flex flex-col">
                 <div className="px-5 py-3 border-b border-hair text-[13px] text-muted">
                   {summary}
@@ -328,6 +340,7 @@ export default function App() {
                   resizeKey={resizeKey}
                   center={city.center}
                   zoom={city.zoom}
+                  instagramMode={instagramMode}
                 />
               </div>
 
@@ -339,15 +352,19 @@ export default function App() {
                 </div>
               )}
 
-              <ExpandMapButton
-                expanded={mapExpanded}
-                onClick={() => setMapExpanded((v) => !v)}
-                bottomOffset={buttonsBottomOffset}
-              />
-              <NearMeButton
-                onClick={geo.request}
-                bottomOffset={buttonsBottomOffset}
-              />
+              {!instagramMode && (
+                <>
+                  <ExpandMapButton
+                    expanded={mapExpanded}
+                    onClick={() => setMapExpanded((v) => !v)}
+                    bottomOffset={buttonsBottomOffset}
+                  />
+                  <NearMeButton
+                    onClick={geo.request}
+                    bottomOffset={buttonsBottomOffset}
+                  />
+                </>
+              )}
 
               {geo.error && (
                 <div className="absolute left-1/2 -translate-x-1/2 bottom-6 bg-white border border-hair px-4 py-2 text-[13px] text-ink z-[600]">
@@ -369,6 +386,7 @@ export default function App() {
                 resizeKey={resizeKey}
                 center={city.center}
                 zoom={city.zoom}
+                instagramMode={instagramMode}
               />
             </div>
 
@@ -380,15 +398,19 @@ export default function App() {
               </div>
             )}
 
-            <ExpandMapButton
-              expanded={mapExpanded}
-              onClick={() => setMapExpanded((v) => !v)}
-              bottomOffset={buttonsBottomOffset}
-            />
-            <NearMeButton
-              onClick={geo.request}
-              bottomOffset={buttonsBottomOffset}
-            />
+            {!instagramMode && (
+              <>
+                <ExpandMapButton
+                  expanded={mapExpanded}
+                  onClick={() => setMapExpanded((v) => !v)}
+                  bottomOffset={buttonsBottomOffset}
+                />
+                <NearMeButton
+                  onClick={geo.request}
+                  bottomOffset={buttonsBottomOffset}
+                />
+              </>
+            )}
 
             {geo.error && (
               <div className="absolute left-4 right-4 bottom-[100px] mx-auto max-w-xs bg-white border border-hair px-4 py-2 text-[13px] text-ink z-[600] text-center">
@@ -396,7 +418,7 @@ export default function App() {
               </div>
             )}
 
-            {!mapExpanded && (
+            {!mapExpanded && !instagramMode && (
               <BottomSheet
                 containerHeight={Math.max(containerHeight - topAreaHeight, 0)}
                 topOffset={0}

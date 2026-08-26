@@ -30,9 +30,9 @@ function Jitter({ text, offset = 0 }) {
   });
 }
 
-export default function Header({ city, cities, onCityChange, onSubmitClick }) {
+export default function Header({ city, cities, onCityChange, onSubmitClick, showSubmit = true }) {
   return (
-    <header className="h-12 sm:h-14 border-b border-hair bg-white flex items-center px-5 relative z-30">
+    <header className="h-12 md:h-14 border-b border-hair bg-white flex items-center px-5 relative z-30">
       {/* Decorative: the wordmark right next to it already carries the
           accessible name, so the mascot stays out of the a11y tree. */}
       <img
@@ -40,7 +40,7 @@ export default function Header({ city, cities, onCityChange, onSubmitClick }) {
         alt=""
         aria-hidden="true"
         draggable="false"
-        className="h-10 w-auto sm:h-12 shrink-0 select-none mr-1.5"
+        className="h-10 w-auto md:h-12 shrink-0 select-none mr-1.5"
       />
       <span className="pf-wordmark text-[22px] sm:text-[26px] leading-none text-ink select-none inline-flex items-center">
         <span className="sr-only">popups.fyi, city:</span>
@@ -86,13 +86,15 @@ export default function Header({ city, cities, onCityChange, onSubmitClick }) {
         </span>
       </span>
 
-      <button
-        type="button"
-        onClick={onSubmitClick}
-        className="ml-auto shrink-0 whitespace-nowrap text-[12px] text-muted hover:text-ink underline underline-offset-2"
-      >
-        Own a pop-up?
-      </button>
+      {showSubmit && (
+        <button
+          type="button"
+          onClick={onSubmitClick}
+          className="ml-auto shrink-0 whitespace-nowrap text-[12px] text-muted hover:text-ink underline underline-offset-2"
+        >
+          Own a pop-up?
+        </button>
+      )}
     </header>
   );
 }

@@ -62,16 +62,34 @@ function iconFor(category) {
   return ICONS[category] || ICONS.other;
 }
 
+// Nominal on-screen size of a single category icon, in px.
+export const MARKER_UNIT_PX = 34;
+
+// Instagram mode draws smaller pins. A screenshot is taken in as one whole
+// image rather than panned around, so the markers want to read as map
+// annotation rather than as thumb-sized tap targets. Production stays at 1.
+export const IG_ICON_SCALE = 0.72;
+
 // Build a complete SVG marker for an array of categories. For each
 // category we render a halo (wide white stroke) so the icon stays legible
 // on any tile, then any colored fill (the beverage), then the navy
 // stroke on top. Multi-category pop-ups show their icons side by side.
-export function buildIconMarkerSvg(categories, isSelected) {
+//
+// `repeatCount` > 1 draws a superscript after the icons — a vendor running the
+// same venue across several days reads as "icon squared" rather than being
+// hidden inside a cluster bubble. The returned `anchorX` is the centre of the
+// icon block only, NOT of the whole SVG, so the exponent hangs off to the side
+// without dragging the marker off its actual coordinates.
+//
+// `iconScale` shrinks the whole marker. Stroke and halo widths stay in screen
+// px on purpose — letting them scale down too would leave the linework too
+// faint to read once the image is downsized for a feed.
+export function buildIconMarkerSvg(categories, isSelected, repeatCount = 1, iconScale = 1) {
   const cats = categories && categories.length > 0 ? categories : ['other'];
   const visible = cats.slice(0, 3);
-  const unit = isSelected ? 40 : 34;
-  const gap = isSelected ? 4 : 3;
-  const width = visible.length * unit + (visible.length - 1) * gap;
+  const unit = (isSelected ? 40 : MARKER_UNIT_PX) * iconScale;
+  const gap = (isSelected ? 4 : 3) * iconScale;
+  const iconsWidth = visible.length * unit + (visible.length - 1) * gap;
   const height = unit;
   const sw = isSelected ? 1.9 : 1.7;
   const haloSw = sw + 3;
@@ -79,7 +97,7 @@ export function buildIconMarkerSvg(categories, isSelected) {
   const cellVB = 24;
   const scale = unit / cellVB;
   const gapVB = gap / scale;
-  const viewW = visible.length * cellVB + (visible.length - 1) * gapVB;
+  const iconsVB = visible.length * cellVB + (visible.length - 1) * gapVB;
   const swVB = sw / scale;
   const haloVB = haloSw / scale;
   const ink = '#0A1628';
@@ -97,9 +115,27 @@ export function buildIconMarkerSvg(categories, isSelected) {
     `;
   }
 
+  const count = Number(repeatCount) || 1;
+  let viewW = iconsVB;
+  if (count > 1) {
+    const label = String(count);
+    const fontVB = isSelected ? 16 : 15;
+    // Indie Flower is narrow; ~0.55em per digit is close enough, and the SVG
+    // renders with overflow visible so an under-estimate can't clip.
+    const supVB = 2 + fontVB * 0.55 * label.length;
+    body += `
+      <text x="${(iconsVB + 1).toFixed(2)}" y="10.5" font-family="'Indie Flower','Bradley Hand',cursive"
+            font-size="${fontVB}" fill="${ink}" stroke="#FFFFFF" stroke-width="${(haloVB * 0.8).toFixed(2)}"
+            stroke-linejoin="round" paint-order="stroke">${label}</text>
+    `;
+    viewW = iconsVB + supVB;
+  }
+
   return {
-    width,
+    width: viewW * scale,
     height,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${viewW} ${cellVB}" style="display:block;overflow:visible">${body}</svg>`,
+    anchorX: iconsWidth / 2,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${viewW * scale}" height="${height}" viewBox="0 0 ${viewW} ${cellVB}" style="display:block;overflow:visible">${body}</svg>`,
   };
 }
+
