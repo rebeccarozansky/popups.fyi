@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet.markercluster';
-import { DEFAULT_CENTER, DEFAULT_ZOOM } from '../lib/config.js';
+import { DEFAULT_CENTER, DEFAULT_ZOOM, TILE_ATTRIBUTION, TILE_URL } from '../lib/config.js';
 import { formatCardDateTime, formatTimeRange } from '../lib/dateFilters.js';
 import { dotColorFor } from './CategoryBadge.jsx';
 import { buildIconMarkerSvg, IG_ICON_SCALE, MARKER_UNIT_PX } from '../lib/categoryIcons.js';
@@ -439,8 +439,8 @@ export default function MapView({
       preferCanvas={false}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+        attribution={TILE_ATTRIBUTION}
+        url={TILE_URL}
         subdomains={['a', 'b', 'c', 'd']}
         maxZoom={19}
       />

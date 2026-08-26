@@ -226,11 +226,19 @@ function handleFrom(url) {
 
 function buildCaption(rows, opts) {
   const label = { today: 'today', weekend: 'this weekend', week: 'this week' }[opts.when];
-  const lines = [`Bakery + cafe pop-ups in ${CITIES[opts.city]} ${label}`, ''];
+  const lines = [
+    `Full map → popups.fyi/${opts.city}`,
+    '',
+    `Pop-ups in ${CITIES[opts.city]} ${label}`,
+    '',
+  ];
 
   for (const row of rows) {
+    // Lead with the handle so each vendor is tagged inline, falling back to
+    // their name when the sheet has no Instagram link for them.
+    const who = handleFrom(row.instagram) || row.name;
     const where = row.venue ? ` @ ${row.venue}` : '';
-    lines.push(`• ${row.name}${where} — ${row.when}`);
+    lines.push(`• ${who}${where} — ${row.when}`);
   }
 
   // A vendor running several dates would otherwise be tagged several times.
@@ -238,7 +246,6 @@ function buildCaption(rows, opts) {
   if (handles.length > 0) {
     lines.push('', `Tag: ${handles.join(' ')}`);
   }
-  lines.push('', `Full map → popups.fyi/${opts.city}`);
   return lines.join('\n');
 }
 
