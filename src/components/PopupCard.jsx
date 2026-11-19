@@ -1,6 +1,8 @@
 import { forwardRef } from 'react';
 import CategoryBadge from './CategoryBadge.jsx';
+import ResidencyGlyph from './ResidencyGlyph.jsx';
 import { formatCardDateTime } from '../lib/dateFilters.js';
+import { formatResidencyCaption, formatResidencySchedule, isResidency } from '../lib/residencies.js';
 
 // Hand-drawn inline icons. Wobbly bezier paths + slightly imperfect shapes
 // to match the marker / legend aesthetic. All single-stroke, ink #0A1628.
@@ -130,11 +132,15 @@ const PopupCard = forwardRef(function PopupCard(
   ref,
 ) {
   const mapsUrl = mapsUrlFor(popup);
+  const residency = isResidency(popup);
   return (
     <button
       ref={ref}
       type="button"
       onClick={() => onClick?.(popup)}
+      // Read by the Instagram caption script (tools/instagram-shot), which
+      // lists residencies in a section of their own with this schedule.
+      data-residency={residency ? formatResidencyCaption(popup) : undefined}
       className="w-full text-left bg-white border-b border-hair active:bg-surfacealt px-5 py-4 flex items-start gap-4"
     >
       <div className="flex-1 min-w-0">
@@ -147,12 +153,25 @@ const PopupCard = forwardRef(function PopupCard(
 
         <div className="mt-1 text-[13px] text-muted">
           {formatCardDateTime(popup)}
+          {residency && (
+            <>
+              {' '}
+              <span className="ml-1 inline-block uppercase tracking-wide text-[11px] font-semibold text-ink border border-hair px-1.5 py-0.5">
+                <ResidencyGlyph size={11} strokeWidth={1.6} className="inline-block mr-1 align-[-1px]" />
+                Residency
+              </span>
+            </>
+          )}
           {isPast && (
             <span className="ml-2 inline-block uppercase tracking-wide text-[11px] font-semibold text-faint border border-hair px-1.5 py-0.5">
-              Already happened
+              {residency ? 'Ended' : 'Already happened'}
             </span>
           )}
         </div>
+
+        {residency && (
+          <div className="mt-0.5 text-[12px] text-muted">{formatResidencySchedule(popup)}</div>
+        )}
 
         {(popup.neighborhood || (popup.categories && popup.categories.length > 0)) && (
           <div className="mt-2 flex items-center gap-3 text-[13px] text-muted flex-wrap">

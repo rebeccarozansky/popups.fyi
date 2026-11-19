@@ -1,6 +1,6 @@
 # popups.fyi
 
-A mobile-first map of bakery and cafe pop-ups. Reads from a publicly-published Google Sheet (CSV), renders an interactive Leaflet map with a draggable bottom sheet list. No backend, no API keys, no auth — it's a static bundle deployed to GitHub Pages.
+A mobile-first map of bakery and cafe pop-ups. Reads from a publicly-published Google Sheet (CSV), renders an interactive MapLibre vector map (smooth zoom, sharp labels at every level) with a draggable bottom sheet list. No backend, no API keys, no auth — it's a static bundle deployed to GitHub Pages.
 
 The initial city is Seattle; the schema and code support any US city. Only the default map center and the "today" timezone anchor are Seattle-specific.
 
@@ -70,6 +70,27 @@ If you'd rather deploy to `username.github.io/popups.fyi/` instead of a custom d
 
 Empty optional fields render nothing — no "N/A", no empty placeholders.
 
+## Residencies
+
+A residency is a vendor with a standing weekly slot at a host venue ("every Sat & Sun, 9–1, through Dec 20"). Residencies come from a second, optional sheet with **one row per residency**, not one per date. The site expands each schedule into dates, lists each residency once (at its next slot inside the active date window), keeps its usual category icon on the map with a small house tucked into the icon's top-right corner like an exponent, tags its card "Residency", and adds a **Residencies** switch to the filter bar. Switching it off is kept in the URL as `?res=0`.
+
+Like the main sheet, the residency sheet's CSV URL is set through `VITE_RESIDENCY_CSV_URL` — in `.env.local` locally and as a repo secret of the same name for deploys (`Settings → Secrets and variables → Actions → New repository secret`). Use the sheet's export link: `https://docs.google.com/spreadsheets/d/<sheet-id>/export?format=csv&gid=0`. Unset means residencies are off (no switch, no residency cards or pins); there is deliberately no sample fallback, so a missing setting can't slip sample vendors into an Instagram post. Keep the sheet's link sharing on **Viewer** — the URL ends up in the public site bundle. To preview with [public/residencies.sample.csv](public/residencies.sample.csv), set `VITE_RESIDENCY_CSV_URL=/residencies.sample.csv` in `.env.local`. If the sheet's header row is missing any of the required columns below, the browser console says which ones.
+
+Columns match the main schema, except `start_datetime` / `end_datetime` are replaced by:
+
+| Column        | Type   | Required | Notes                                                                 |
+| ------------- | ------ | -------- | --------------------------------------------------------------------- |
+| `days`        | string | yes      | e.g. `Sat, Sun`, `Sat & Sun`, `Fri-Sun`, `Wed to Fri`, `weekends`, `daily` |
+| `start_time`  | string | yes      | local wall-clock, e.g. `9:00`, `9:00 AM`, `9am`                       |
+| `end_time`    | string | yes      | same formats; earlier than `start_time` means it runs past midnight   |
+| `start_date`  | string | yes      | first day, `YYYY-MM-DD` (or `M/D/YYYY`)                               |
+| `end_date`    | string | no       | last day; blank = ongoing                                             |
+| `skip_dates`  | string | no       | comma-separated days off, e.g. `2026-11-26, 2026-12-24`               |
+
+Residency ids are prefixed with `res-` in the app, so they never collide with pop-up ids in saved lists or share links.
+
+**Different hours on different days.** If a vendor's residency keeps different hours on different days at the same venue (say Tue 11–5 and Fri 6–10), add one row per set of hours. Rows with the same `name` at the same spot (within ~50 m) are shown as a single residency — one card, one pin, one saved item — with its card reading "Every Tue 11 AM–5 PM, Fri 6–10 PM". It keeps the first row's `id`, and notes from every row are kept. Each row can have its own `start_date`, `end_date` and `skip_dates`.
+
 ## Cities
 
 The site is served per city at `popups.fyi/<slug>`:
@@ -94,4 +115,4 @@ On startup, `usePopups` reads from `localStorage` (`popups.fyi:cache`) for insta
 
 ## Tech
 
-Vite · React 18 · Tailwind · Leaflet (CartoDB Positron tiles) · leaflet.markercluster · Papa Parse · Luxon.
+Vite · React 18 · Tailwind · MapLibre GL JS ([OpenFreeMap](https://openfreemap.org) Positron vector tiles; set `VITE_MAP_STYLE_URL` to use any other MapLibre style) · Supercluster · Papa Parse · Luxon.

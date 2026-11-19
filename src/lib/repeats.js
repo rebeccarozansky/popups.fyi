@@ -1,6 +1,6 @@
 // A vendor doing a multi-day residency — the same bakery on Saturday *and*
 // Sunday — arrives as several rows that share a venue, so their markers land
-// on identical coordinates. Leaflet's cluster group then stacks them into a
+// on identical coordinates. The map's clustering would then stack them into a
 // numbered navy bubble, which reads as "two different pop-ups here" when it is
 // really one vendor, twice. Collapsing them into a single marker keeps the
 // vendor's category icon visible and lets the repeat count ride along as a
@@ -17,7 +17,10 @@ function vendorKey(popup) {
   const vendor = String(popup.name || '').trim().toLowerCase();
   const lat = Number(popup.lat).toFixed(COORD_DP);
   const lng = Number(popup.lng).toFixed(COORD_DP);
-  return `${vendor}@${lat},${lng}`;
+  // A residency keeps its own marker (and its residency mark) even when the
+  // same vendor also has a one-off date listed at that venue.
+  const kind = popup.kind === 'residency' ? 'residency:' : '';
+  return `${kind}${vendor}@${lat},${lng}`;
 }
 
 function startMillis(popup) {

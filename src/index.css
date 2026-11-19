@@ -150,40 +150,52 @@ body {
   background: #0a1628;
 }
 
-/* Leaflet popup overrides — strip default shadow and rounding to match
-   the stark Beli-inspired look. */
-.leaflet-popup-content-wrapper {
+/* MapLibre popup overrides — strip default shadow and rounding to match
+   the stark Beli-inspired look. Raised over the pins, which carry their own
+   z-index (selected and fanned-out pins sit on top of the rest). */
+.maplibregl-popup {
+  z-index: 4;
+}
+.maplibregl-popup-content {
   border-radius: 0;
   box-shadow: none;
   border: 1px solid #e5e7eb;
-  padding: 0;
-}
-.leaflet-popup-content {
-  margin: 12px 16px;
+  padding: 12px 24px 12px 16px;
   font-family: inherit;
   font-size: 13px;
   line-height: 1.45;
   color: #0a1628;
 }
-.leaflet-popup-tip {
-  box-shadow: none;
+.maplibregl-popup-close-button {
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+  line-height: 22px;
+  color: #6b7280;
 }
-.leaflet-popup-close-button {
-  color: #6b7280 !important;
+.maplibregl-popup-close-button:hover {
+  background: transparent;
+  color: #0a1628;
 }
 
 /* Attribution */
-.leaflet-control-attribution {
-  font-size: 10px !important;
-  background: rgba(255, 255, 255, 0.9) !important;
+.maplibregl-ctrl.maplibregl-ctrl-attrib {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.9);
 }
 
-/* Disable default focus rings inside Leaflet popups (we have no interactive
-   controls there besides the View details button which has its own styling). */
-.leaflet-container a.pf-detail-link {
+.maplibregl-popup a.pf-detail-link {
   color: #0a1628;
   text-decoration: underline;
   font-weight: 600;
+}
+
+/* Pins are plain DOM elements laid over the map canvas. */
+.pf-pin {
+  cursor: pointer;
+}
+.pf-fan-legs {
+  pointer-events: none;
 }
 
 /* Prevent native scroll chaining when dragging the bottom sheet. */

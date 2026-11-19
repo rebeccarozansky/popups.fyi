@@ -30,6 +30,7 @@ jobs:
       - name: Build
         env:
           VITE_SHEET_CSV_URL: ${{ secrets.VITE_SHEET_CSV_URL }}
+          VITE_RESIDENCY_CSV_URL: ${{ secrets.VITE_RESIDENCY_CSV_URL }}
           VITE_CARTO_API_KEY: ${{ secrets.VITE_CARTO_API_KEY }}
         run: npm run build
 

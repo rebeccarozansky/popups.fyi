@@ -10,13 +10,15 @@ import ExpandMapButton from './components/ExpandMapButton.jsx';
 import SortToggle from './components/SortToggle.jsx';
 import MapLegend from './components/MapLegend.jsx';
 import SubmitPopupModal from './components/SubmitPopupModal.jsx';
-import { usePopups } from './hooks/usePopups.js';
+import { usePopups, useResidencies } from './hooks/usePopups.js';
 import { useGeolocation } from './hooks/useGeolocation.js';
 import { useSavedPopups } from './hooks/useSavedPopups.js';
 import { useCityRoute } from './hooks/useCityRoute.js';
 import { cityForPopup, popupsInCity } from './lib/cities.js';
+import { RESIDENCY_ID_PREFIX } from './lib/csv.js';
 import { filterPopups, FILTERS } from './lib/dateFilters.js';
 import { distanceMeters } from './lib/geo.js';
+import { filterResidencies, isResidency, residencyEntryNow } from './lib/residencies.js';
 
 // Mobile-layout header height. The header grows to 56px at md (768px), which
 // is exactly where the layout switches to desktop and the bottom sheet stops
@@ -26,6 +28,8 @@ const HEADER_HEIGHT = 48;
 const CHIPS_HEIGHT = 48;
 const CUSTOM_PANEL_HEIGHT = 56;
 const DESKTOP_MIN_WIDTH = 768;
+
+const byStart = (a, b) => a.start.toMillis() - b.start.toMillis();
 
 function readUrlState() {
   const params = new URLSearchParams(window.location.search);
@@ -40,10 +44,13 @@ function readUrlState() {
   // mount and never written back, so it survives filter changes but is only
   // ever entered deliberately via the URL.
   const instagramMode = params.get('ig') === '1';
-  return { filter, customRange: { from, to }, sharedId, instagramMode };
+  // Residencies are shown unless switched off; only the off state is kept in
+  // the URL (?res=0), so ordinary links stay clean.
+  const showResidencies = params.get('res') !== '0';
+  return { filter, customRange: { from, to }, sharedId, instagramMode, showResidencies };
 }
 
-function writeUrlState({ filter, customRange }) {
+function writeUrlState({ filter, customRange, showResidencies }) {
   const url = new URL(window.location.href);
   url.searchParams.set('when', filter);
   if (filter === 'custom') {
@@ -55,6 +62,8 @@ function writeUrlState({ filter, customRange }) {
     url.searchParams.delete('from');
     url.searchParams.delete('to');
   }
+  if (showResidencies) url.searchParams.delete('res');
+  else url.searchParams.set('res', '0');
   window.history.replaceState(null, '', url);
 }
 
@@ -78,15 +87,24 @@ function useIsDesktop() {
 
 export default function App() {
   const { popups: everyPopup, status, retry } = usePopups();
+  const { residencies: everyResidency, status: residencyStatus } = useResidencies();
   const { city, cities, selectCity } = useCityRoute();
 
   // Everything downstream (filters, saved list, map, deep links) operates on
   // the active city's pop-ups only.
   const allPopups = useMemo(() => popupsInCity(everyPopup, city), [everyPopup, city]);
+  const allResidencies = useMemo(
+    () => popupsInCity(everyResidency, city),
+    [everyResidency, city],
+  );
 
   const initial = useRef(readUrlState()).current;
   const [filter, setFilter] = useState(initial.filter);
   const [customRange, setCustomRange] = useState(initial.customRange);
+  const [showResidencies, setShowResidencies] = useState(initial.showResidencies);
+  // Nothing to toggle in a city without residencies (or with no residency
+  // sheet configured) - the switch is hidden there.
+  const residenciesOn = showResidencies && allResidencies.length > 0;
   // Deep link: ?id=<popup.id>. Held in state (not a ref) so the shared pop-up
   // can be force-injected into the list/map even when the active date filter
   // — or the pop-up having already ended — would normally hide it.
@@ -123,13 +141,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    writeUrlState({ filter, customRange });
-  }, [filter, customRange]);
+    writeUrlState({ filter, customRange, showResidencies });
+  }, [filter, customRange, showResidencies]);
 
-  const filtered = useMemo(
-    () => filterPopups(allPopups, filter, customRange, city.timezone),
-    [allPopups, filter, customRange, city.timezone],
-  );
+  // Residencies slot into the same date order as one-off pop-ups, each placed
+  // at its first date inside the active window.
+  const filtered = useMemo(() => {
+    const popups = filterPopups(allPopups, filter, customRange, city.timezone);
+    if (!residenciesOn) return popups;
+    const residencies = filterResidencies(allResidencies, filter, customRange, city.timezone);
+    return [...popups, ...residencies].sort(byStart);
+  }, [allPopups, allResidencies, residenciesOn, filter, customRange, city.timezone]);
 
   // In saved mode we bypass the date filter entirely and show every saved
   // pop-up (past and future). Otherwise apply the active date filter, and
@@ -137,10 +159,13 @@ export default function App() {
   const sorted = useMemo(() => {
     let list;
     if (sortMode === 'saved') {
-      list = allPopups
-        .filter((p) => saved.has(p.id))
-        .slice()
-        .sort((a, b) => a.start.toMillis() - b.start.toMillis());
+      const savedResidencies = residenciesOn
+        ? allResidencies
+            .filter((r) => saved.has(r.id))
+            .map((r) => residencyEntryNow(r))
+            .filter(Boolean)
+        : [];
+      list = [...allPopups.filter((p) => saved.has(p.id)), ...savedResidencies].sort(byStart);
     } else if (sortMode === 'distance' && geo.coord) {
       list = [...filtered].sort(
         (a, b) =>
@@ -154,11 +179,14 @@ export default function App() {
     // if the active filter would hide it — most importantly, after it has
     // ended. Without this, opening a link to a finished pop-up shows nothing.
     if (sharedId && !list.some((p) => p.id === sharedId)) {
-      const shared = allPopups.find((p) => p.id === sharedId);
+      const sharedResidency = allResidencies.find((r) => r.id === sharedId);
+      const shared =
+        allPopups.find((p) => p.id === sharedId) ||
+        (sharedResidency ? residencyEntryNow(sharedResidency) : null);
       if (shared) list = [shared, ...list];
     }
     return list;
-  }, [sortMode, allPopups, saved, filtered, geo.coord, sharedId]);
+  }, [sortMode, allPopups, allResidencies, residenciesOn, saved, filtered, geo.coord, sharedId]);
 
   // "Already happened" check — anything whose end time is in the past.
   const isPast = useCallback((p) => p.end < DateTime.now(), []);
@@ -175,8 +203,11 @@ export default function App() {
   // approach switched to a custom date range, which both failed for finished
   // pop-ups and caused an infinite render loop that blanked the page.)
   useEffect(() => {
-    if (!sharedId || everyPopup.length === 0) return;
-    const target = everyPopup.find((p) => p.id === sharedId);
+    if (!sharedId) return;
+    // Wait for whichever sheet the shared id comes from.
+    const residencyLink = sharedId.startsWith(RESIDENCY_ID_PREFIX);
+    if (residencyLink ? residencyStatus === 'loading' : everyPopup.length === 0) return;
+    const target = (residencyLink ? everyResidency : everyPopup).find((p) => p.id === sharedId);
     if (!target) {
       setSharedId(null);
       return;
@@ -199,7 +230,7 @@ export default function App() {
     window.history.replaceState(null, '', url);
     // sharedId stays set so the pop-up remains visible until the user starts
     // browsing (changes filter/sort), at which point the handlers clear it.
-  }, [sharedId, everyPopup, isDesktop, city, selectCity]);
+  }, [sharedId, everyPopup, everyResidency, residencyStatus, isDesktop, city, selectCity]);
 
   // Clearing the deep-link override once the user starts browsing normally.
   const onFilterChange = useCallback((next) => {
@@ -209,6 +240,10 @@ export default function App() {
   const onCustomRangeChange = useCallback((next) => {
     setSharedId(null);
     setCustomRange(next);
+  }, []);
+  const onResidencyToggle = useCallback((next) => {
+    setSharedId(null);
+    setShowResidencies(next);
   }, []);
 
   const onCardSelect = useCallback(
@@ -257,10 +292,15 @@ export default function App() {
     if (sortMode === 'distance' && geo.error) setSortMode('date');
   }, [sortMode, geo.error]);
 
+  const residencyCount = sorted.filter(isResidency).length;
+  const popupCount = sorted.length - residencyCount;
   const summary =
     status === 'loading'
       ? 'Loading'
-      : `${sorted.length} pop-up${sorted.length === 1 ? '' : 's'}`;
+      : `${popupCount} pop-up${popupCount === 1 ? '' : 's'}` +
+        (residencyCount > 0
+          ? ` · ${residencyCount} ${residencyCount === 1 ? 'residency' : 'residencies'}`
+          : '');
 
   // City-aware empty copy so a city with no upcoming rows doesn't read as a
   // loading failure.
@@ -274,7 +314,7 @@ export default function App() {
   const topAreaHeight =
     HEADER_HEIGHT + CHIPS_HEIGHT + (filter === 'custom' ? CUSTOM_PANEL_HEIGHT : 0);
 
-  // Trigger Leaflet's invalidateSize when the layout shape changes.
+  // Re-measure the map when the layout shape changes.
   const resizeKey = `${isDesktop ? 'd' : 'm'}-${mapExpanded ? 'x' : 'n'}-${filter === 'custom' ? 'c' : 's'}-${city.slug}`;
 
   const buttonsBottomOffset = isDesktop
@@ -284,7 +324,13 @@ export default function App() {
     : COLLAPSED_HEIGHT;
 
   return (
-    <div ref={shellRef} className="app-shell h-screen flex flex-col">
+    <div
+      ref={shellRef}
+      className="app-shell h-screen flex flex-col"
+      // The Instagram caption script waits for the residency sheet to settle
+      // before reading the list (tools/instagram-shot).
+      data-residency-status={residencyStatus}
+    >
       <Header
         city={city}
         cities={cities}
@@ -297,6 +343,11 @@ export default function App() {
         onChange={onFilterChange}
         customRange={customRange}
         onCustomRangeChange={onCustomRangeChange}
+        residency={
+          !instagramMode && allResidencies.length > 0
+            ? { on: showResidencies, onToggle: onResidencyToggle }
+            : null
+        }
       />
 
       <main className={isDesktop ? 'flex-1 overflow-hidden flex flex-row' : 'relative flex-1 overflow-hidden'}>
@@ -344,7 +395,7 @@ export default function App() {
                 />
               </div>
 
-              <MapLegend />
+              <MapLegend showResidency={residenciesOn} />
 
               {status === 'stale' && (
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white border border-hair px-3 py-1 text-[12px] text-muted z-[450]">
@@ -390,7 +441,7 @@ export default function App() {
               />
             </div>
 
-            <MapLegend />
+            <MapLegend showResidency={residenciesOn} />
 
             {status === 'stale' && (
               <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white border border-hair px-3 py-1 text-[12px] text-muted z-[450]">

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { buildIconMarkerSvg } from '../lib/categoryIcons.js';
+import { buildIconMarkerSvg, buildResidencyLegendSvg, MARKER_UNIT_PX } from '../lib/categoryIcons.js';
 
 const ITEMS = [
   { key: 'coffee', label: 'coffee' },
@@ -11,9 +11,12 @@ const ITEMS = [
 
 // Small absolute-positioned legend that sits in the top-right of the map
 // area. Tap to collapse to a single "legend" pill on mobile so it doesn't
-// crowd the view. Rendered above Leaflet's tile layer (z-index 450+).
-export default function MapLegend() {
+// crowd the view. Rendered above the map (z-index 450+).
+// `showResidency` explains the residency exponent while residencies are on the
+// map.
+export default function MapLegend({ showResidency = false }) {
   const [open, setOpen] = useState(true);
+  const residencySample = showResidency ? buildResidencyLegendSvg() : null;
 
   return (
     <div className="absolute top-3 right-3 z-[450] select-none">
@@ -50,6 +53,27 @@ export default function MapLegend() {
                 </li>
               );
             })}
+            {residencySample && (
+              <li className="flex items-center gap-2 pt-1.5 border-t border-hair">
+                <span
+                  className="inline-flex items-center justify-center"
+                  style={{ width: 22, height: 22 }}
+                >
+                  {/* Left padding equal to the exponent's overhang keeps the
+                      stand-in icon centred in line with the icons above. */}
+                  <span
+                    style={{
+                      transform: 'scale(0.65)',
+                      transformOrigin: 'center',
+                      display: 'inline-block',
+                      paddingLeft: residencySample.width - MARKER_UNIT_PX,
+                    }}
+                    dangerouslySetInnerHTML={{ __html: residencySample.svg }}
+                  />
+                </span>
+                <span className="text-[11px] tracking-[0.06em] uppercase text-ink">residency</span>
+              </li>
+            )}
           </ul>
         </div>
       ) : (

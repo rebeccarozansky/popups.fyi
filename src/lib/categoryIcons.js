@@ -65,6 +65,67 @@ function iconFor(category) {
 // Nominal on-screen size of a single category icon, in px.
 export const MARKER_UNIT_PX = 34;
 
+// Residency mark: a minimal hand-drawn house, i.e. "this vendor has a home
+// here" (a looping arrow was tried first, but read as an undo button). Roof
+// eaves overhang the walls so it reads as a house rather than a pentagon even
+// at ~11px. Authored in a 12x12 box. On a marker it is an exponent on the
+// category icon ("bakery to the power of residency"); a residency is always a
+// single marker, so it never competes with a repeat count. The same paths are
+// reused by the legend, cards, popups and the toggle.
+export const RESIDENCY_GLYPH_PATHS = [
+  // Roof
+  'M1.2 6.5 C 2.7 4.8 4.3 3.2 6 1.8 C 7.7 3.2 9.3 4.7 10.8 6.4',
+  // Walls and floor
+  'M3 4.9 C 2.9 6.8 3 8.6 3.1 10.4 C 5.1 10.5 7 10.3 8.9 10.4 C 9 8.5 9 6.7 9 4.9',
+];
+
+// Exponent geometry, in the 24-unit icon space. The mark's box starts inside
+// the last icon's cell and above it: every icon leaves its top-right corner
+// empty, so overlapping there makes the mark hug the artwork like an exponent
+// instead of floating off as a pin of its own. The white halo knocks it out
+// cleanly where it brushes the icon.
+const RES_EXP_SIZE = 10.5;
+const RES_EXP_INSET = 4.5; // how far the box starts inside the icons' right edge
+const RES_EXP_RAISE = 3; // how far the box starts above the icon
+// How far the exponent reaches past the icons' right edge.
+const RES_EXP_OVERHANG = RES_EXP_SIZE - RES_EXP_INSET;
+
+function residencyExponentSvg(rightEdgeVB, swVB, haloVB, ink) {
+  const s = RES_EXP_SIZE / 12;
+  const glyph = RESIDENCY_GLYPH_PATHS.map((d) => `<path d="${d}"/>`).join('');
+  // A touch lighter than the icon's own line so it reads as a modifier.
+  return `
+    <g transform="translate(${(rightEdgeVB - RES_EXP_INSET).toFixed(2)},${-RES_EXP_RAISE}) scale(${s.toFixed(3)})" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g stroke="#FFFFFF" stroke-width="${((haloVB * 0.8) / s).toFixed(2)}">${glyph}</g>
+      <g stroke="${ink}" stroke-width="${((swVB * 0.85) / s).toFixed(2)}">${glyph}</g>
+    </g>
+  `;
+}
+
+// Legend sample for residencies: a faint dashed stand-in for "any icon"
+// wearing the exponent, so the legend explains the corner mark rather than
+// listing residency as a category of its own. Same size and stroke as an
+// unselected marker, so it scales in the legend exactly like the icons above.
+export function buildResidencyLegendSvg() {
+  const scale = MARKER_UNIT_PX / 24;
+  const swVB = 1.7 / scale;
+  const haloVB = (1.7 + 3) / scale;
+  const viewW = 24 + RES_EXP_OVERHANG;
+  return {
+    width: viewW * scale,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${viewW * scale}" height="${MARKER_UNIT_PX}" viewBox="0 0 ${viewW} 24" style="display:block;overflow:visible">
+      <g fill="none" stroke="#9CA3AF" stroke-width="${swVB.toFixed(2)}" stroke-linecap="round" stroke-dasharray="2.4 2.8">${BAKERY_OUTLINE}</g>
+      ${residencyExponentSvg(24, swVB, haloVB, '#0A1628')}
+    </svg>`,
+  };
+}
+
+// Standalone residency mark for HTML strings (Leaflet popups).
+export function residencyGlyphSvg(size = 12, color = '#0A1628') {
+  const paths = RESIDENCY_GLYPH_PATHS.map((d) => `<path d="${d}"/>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 12 12" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-1px">${paths}</svg>`;
+}
+
 // Instagram mode draws smaller pins. A screenshot is taken in as one whole
 // image rather than panned around, so the markers want to read as map
 // annotation rather than as thumb-sized tap targets. Production stays at 1.
@@ -84,7 +145,16 @@ export const IG_ICON_SCALE = 0.72;
 // `iconScale` shrinks the whole marker. Stroke and halo widths stay in screen
 // px on purpose — letting them scale down too would leave the linework too
 // faint to read once the image is downsized for a feed.
-export function buildIconMarkerSvg(categories, isSelected, repeatCount = 1, iconScale = 1) {
+//
+// `residency` tucks the residency house into the top-right corner of the last
+// icon as an exponent, in place of a repeat count.
+export function buildIconMarkerSvg(
+  categories,
+  isSelected,
+  repeatCount = 1,
+  iconScale = 1,
+  residency = false,
+) {
   const cats = categories && categories.length > 0 ? categories : ['other'];
   const visible = cats.slice(0, 3);
   const unit = (isSelected ? 40 : MARKER_UNIT_PX) * iconScale;
@@ -117,7 +187,10 @@ export function buildIconMarkerSvg(categories, isSelected, repeatCount = 1, icon
 
   const count = Number(repeatCount) || 1;
   let viewW = iconsVB;
-  if (count > 1) {
+  if (residency) {
+    body += residencyExponentSvg(iconsVB, swVB, haloVB, ink);
+    viewW = iconsVB + RES_EXP_OVERHANG;
+  } else if (count > 1) {
     const label = String(count);
     const fontVB = isSelected ? 16 : 15;
     // Indie Flower is narrow; ~0.55em per digit is close enough, and the SVG
