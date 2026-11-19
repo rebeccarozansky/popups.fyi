@@ -18,7 +18,7 @@
  *   node tools/instagram-shot/shot.mjs --city seattle --out ./out
  *
  * Options:
- *   --city <seattle|sanfrancisco>  Which city to render      (default seattle)
+ *   --city <seattle|sanfrancisco|raleigh>  Which city to render  (default seattle)
  *   --out <folder>                 Where to save             (default ./screenshots)
  *   --format <portrait|square|story>                         (default portrait)
  *   --when <today|weekend|week|custom>  Date filter          (default week)
@@ -48,6 +48,7 @@ const FORMATS = {
 const CITIES = {
   seattle: 'Seattle',
   sanfrancisco: 'San Francisco',
+  raleigh: 'Raleigh',
 };
 
 const WHEN = ['today', 'weekend', 'week', 'custom'];
@@ -324,6 +325,7 @@ const RESIDENCY_HEADING = '⌂ RESIDENCIES';
 const HASHTAGS = {
   seattle: '#seattle #seattlepopups #popups',
   sanfrancisco: '#sanfrancisco #sfpopups #bayareapopups',
+  raleigh: '#raleigh #raleighpopups #trianglepopups',
 };
 
 function buildCaption(rows, opts) {

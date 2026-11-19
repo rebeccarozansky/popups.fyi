@@ -1,8 +1,8 @@
 // City registry + path routing for popups.fyi.
 //
 // The site is served per-city at popups.fyi/<slug> (popups.fyi/seattle,
-// popups.fyi/sanfrancisco). The bare domain popups.fyi renders the default
-// city, so existing links keep working.
+// popups.fyi/sanfrancisco, popups.fyi/raleigh). The bare domain popups.fyi
+// renders the default city, so existing links keep working.
 //
 // A pop-up belongs to a city when its `city` cell matches one of that city's
 // aliases, or — failing that — when its coordinates fall inside the metro
@@ -62,6 +62,32 @@ export const CITIES = [
       'palo alto',
     ],
   },
+  {
+    slug: 'raleigh',
+    name: 'Raleigh',
+    timezone: 'America/New_York',
+    center: [35.7796, -78.6382],
+    zoom: 12,
+    // Research Triangle: Raleigh, Durham, Chapel Hill and the towns between.
+    bounds: { minLat: 35.4, maxLat: 36.3, minLng: -79.4, maxLng: -78.2 },
+    aliases: [
+      'raleigh',
+      'durham',
+      'chapel hill',
+      'carrboro',
+      'cary',
+      'apex',
+      'morrisville',
+      'wake forest',
+      'garner',
+      'holly springs',
+      'fuquay-varina',
+      'knightdale',
+      'wendell',
+      'clayton',
+      'hillsborough',
+    ],
+  },
 ];
 
 export const DEFAULT_CITY_SLUG = 'seattle';
@@ -72,6 +98,7 @@ const SLUG_ALIASES = {
   san_francisco: 'sanfrancisco',
   sf: 'sanfrancisco',
   sea: 'seattle',
+  rdu: 'raleigh',
 };
 
 export const DEFAULT_CITY = CITIES.find((c) => c.slug === DEFAULT_CITY_SLUG);

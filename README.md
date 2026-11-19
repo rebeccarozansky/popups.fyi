@@ -115,12 +115,13 @@ The site is served per city at `popups.fyi/<slug>`:
 | `popups.fyi`               | Seattle (default — the bare domain)     |
 | `popups.fyi/seattle`       | Seattle                                 |
 | `popups.fyi/sanfrancisco`  | San Francisco                           |
+| `popups.fyi/raleigh`       | Raleigh (and the Research Triangle)     |
 
-The city name in the wordmark (`popups.fyi/<city>`) is a dropdown; picking a city pushes the new path and keeps the active date filter. `/san-francisco` and `/sf` redirect to the canonical slug, and an unknown path falls back to the default city.
+The city name in the wordmark (`popups.fyi/<city>`) is a dropdown; picking a city pushes the new path and keeps the active date filter. `/san-francisco` and `/sf` also open San Francisco, `/rdu` opens Raleigh, and an unknown path falls back to the default city.
 
-A pop-up is assigned to a city by its `city` cell when that name is a known alias, otherwise by whether its coordinates fall inside the city's metro bounding box — so suburb rows (Bothell, Renton, Oakland, …) stay attached to the right metro without extra bookkeeping.
+A pop-up is assigned to a city by its `city` cell when that name is a known alias, otherwise by whether its coordinates fall inside the city's metro bounding box — so suburb rows (Bothell, Renton, Oakland, Durham, …) stay attached to the right metro without extra bookkeeping. Set each row's `timezone` to its city's zone (`America/New_York` for Raleigh).
 
-To add another city, append an entry to `CITIES` in [src/lib/cities.js](src/lib/cities.js) with its slug, map center, timezone, metro bounds, and city-name aliases. No other code changes are needed.
+To add another city, append an entry to `CITIES` in [src/lib/cities.js](src/lib/cities.js) with its slug, map center, timezone, metro bounds, and city-name aliases. No other site code changes are needed; for Instagram posts, also add the city to `CITIES` and `HASHTAGS` in [tools/instagram-shot/shot.mjs](tools/instagram-shot/shot.mjs).
 
 Because GitHub Pages has no server-side rewrites, the build writes `dist/404.html` as a copy of `index.html` (see the `spaFallback` plugin in [vite.config.js](vite.config.js)) so a direct hit on `popups.fyi/seattle` boots the app instead of 404-ing.
 
