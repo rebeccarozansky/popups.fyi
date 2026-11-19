@@ -21,17 +21,20 @@
  *   --city <seattle|sanfrancisco>  Which city to render      (default seattle)
  *   --out <folder>                 Where to save             (default ./screenshots)
  *   --format <portrait|square|story>                         (default portrait)
- *   --when <today|weekend|week>    Date filter               (default week)
+ *   --when <today|weekend|week|custom>  Date filter          (default week)
+ *   --from <YYYY-MM-DD>            Start of a custom range
+ *   --to <YYYY-MM-DD>              End of a custom range (inclusive)
  *   --url <base>                   Site root                 (default http://localhost:5173)
  *   --scale <n>                    Device pixel ratio        (default 2)
  *   --name <file>                  Override the output filename
+ *   --mascot <file>                Image for the local cover add-on, if installed
  *   --no-caption                   Skip the .txt caption sidecar
  *   --keep-ui                      Leave the dropdown caret / legend close button in
  *   --help
  */
 
 import { chromium } from 'playwright';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 // 4:5 is the tallest aspect the Instagram feed will show without cropping, so
@@ -47,18 +50,26 @@ const CITIES = {
   sanfrancisco: 'San Francisco',
 };
 
-const WHEN = ['today', 'weekend', 'week'];
+const WHEN = ['today', 'weekend', 'week', 'custom'];
+
+// Matches the site's own cap on a custom range (CUSTOM_MAX_DAYS in
+// src/lib/dateFilters.js) — a longer range renders an empty map.
+const CUSTOM_MAX_DAYS = 14;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const DEFAULTS = {
   city: 'seattle',
   out: 'screenshots',
   format: 'portrait',
   when: 'week',
+  from: '',
+  to: '',
   url: 'http://localhost:5173',
   scale: 2,
   caption: true,
   keepUi: false,
   name: '',
+  mascot: undefined,
   timeout: 45000,
 };
 
@@ -73,9 +84,12 @@ function usage() {
       `  --out      folder to save into              (default ${DEFAULTS.out})`,
       `  --format   ${Object.keys(FORMATS).join(' | ')}   (default ${DEFAULTS.format})`,
       `  --when     ${WHEN.join(' | ')}          (default ${DEFAULTS.when})`,
+      '  --from     YYYY-MM-DD start of a custom range',
+      '  --to       YYYY-MM-DD end of a custom range (inclusive)',
       `  --url      site root                        (default ${DEFAULTS.url})`,
       `  --scale    device pixel ratio               (default ${DEFAULTS.scale})`,
       '  --name     override output filename',
+      '  --mascot   image for the local cover add-on, if installed',
       '  --no-caption   skip the caption .txt',
       '  --keep-ui      keep the dropdown caret + legend close button',
     ].join('\n'),
@@ -96,9 +110,12 @@ function parseArgs(argv) {
       case '--out': case '-o': opts.out = next(); break;
       case '--format': opts.format = next().toLowerCase(); break;
       case '--when': opts.when = next().toLowerCase(); break;
+      case '--from': opts.from = next(); break;
+      case '--to': opts.to = next(); break;
       case '--url': opts.url = next().replace(/\/+$/, ''); break;
       case '--scale': opts.scale = Number(next()); break;
       case '--name': opts.name = next(); break;
+      case '--mascot': opts.mascot = path.resolve(next()); break;
       case '--no-caption': opts.caption = false; break;
       case '--keep-ui': opts.keepUi = true; break;
       case '--help': case '-h': opts.help = true; break;
@@ -123,12 +140,70 @@ function validate(opts) {
   if (!FORMATS[opts.format]) {
     throw new Error(`--format must be one of: ${Object.keys(FORMATS).join(', ')}`);
   }
+  // Giving a range implies a custom filter — otherwise it's easy to pass
+  // --from/--to and silently get "this week" back.
+  if (opts.from && opts.to) opts.when = 'custom';
   if (!WHEN.includes(opts.when)) {
     throw new Error(`--when must be one of: ${WHEN.join(', ')}`);
+  }
+  if (opts.when === 'custom') {
+    if (!ISO_DATE.test(opts.from) || !ISO_DATE.test(opts.to)) {
+      throw new Error('--from and --to are required as YYYY-MM-DD for a custom range');
+    }
+    if (opts.to < opts.from) throw new Error('--to is before --from');
+    const days = Math.round((Date.parse(opts.to) - Date.parse(opts.from)) / 86400000) + 1;
+    if (days > CUSTOM_MAX_DAYS) {
+      throw new Error(`custom range is ${days} days; the site only renders up to ${CUSTOM_MAX_DAYS}`);
+    }
   }
   if (!Number.isFinite(opts.scale) || opts.scale < 1 || opts.scale > 4) {
     throw new Error('--scale must be a number between 1 and 4');
   }
+}
+
+// Query string for the app. Shared by the screenshot and the caption scrape so
+// the two can never end up describing different date ranges.
+function queryFor(opts, extra = {}) {
+  const params = new URLSearchParams({ when: opts.when });
+  if (opts.when === 'custom') {
+    params.set('from', opts.from);
+    params.set('to', opts.to);
+  }
+  for (const [key, value] of Object.entries(extra)) params.set(key, value);
+  return params.toString();
+}
+
+// "this week" / "Sep 5–9" / "Sep 28 – Oct 2". Parsed as UTC so a date near
+// midnight can't roll back a day in the runner's local timezone.
+function whenLabel(opts) {
+  if (opts.when !== 'custom') {
+    return { today: 'today', weekend: 'this weekend', week: 'this week' }[opts.when];
+  }
+  const parse = (iso) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d));
+  };
+  const from = parse(opts.from);
+  const to = parse(opts.to);
+  const month = (d) => d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+  const day = (d) => d.getUTCDate();
+  if (opts.from === opts.to) return `${month(from)} ${day(from)}`;
+  return month(from) === month(to)
+    ? `${month(from)} ${day(from)}–${day(to)}`
+    : `${month(from)} ${day(from)} – ${month(to)} ${day(to)}`;
+}
+
+// The cover renderer is a local add-on that isn't committed (see .gitignore).
+// When tools/instagram-shot/cover.mjs is present, each run also writes a
+// matching -cover.jpg; without it the map and caption are unaffected.
+const COVER_MODULE = new URL('./cover.mjs', import.meta.url);
+async function loadCoverRenderer() {
+  try {
+    await access(COVER_MODULE);
+  } catch {
+    return null;
+  }
+  return (await import(COVER_MODULE.href)).renderCover;
 }
 
 // Screenshot polish. These are affordances that only make sense when you can
@@ -172,7 +247,7 @@ async function waitForMapReady(page, timeout) {
 async function scrapeCaption(browser, opts) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   try {
-    await page.goto(`${opts.url}/${opts.city}?when=${opts.when}`, {
+    await page.goto(`${opts.url}/${opts.city}?${queryFor(opts)}`, {
       waitUntil: 'load',
       timeout: opts.timeout,
     });
@@ -252,7 +327,7 @@ const HASHTAGS = {
 };
 
 function buildCaption(rows, opts) {
-  const label = { today: 'today', weekend: 'this weekend', week: 'this week' }[opts.when];
+  const label = whenLabel(opts);
   const lines = [
     `Full map → popups.fyi/${opts.city}`,
     '',
@@ -291,9 +366,13 @@ async function main() {
   await mkdir(outDir, { recursive: true });
 
   const stamp = new Date().toISOString().slice(0, 10);
+  // A custom range names itself; the relative filters get the run date so
+  // successive weeks don't overwrite each other.
+  const slug =
+    opts.when === 'custom' ? `${opts.from}-to-${opts.to}` : `${opts.when}-${stamp}`;
   const base = opts.name
     ? opts.name.replace(/\.png$/i, '')
-    : `popups-${opts.city}-${opts.when}-${stamp}`;
+    : `popups-${opts.city}-${slug}`;
   const imagePath = path.join(outDir, `${base}.png`);
 
   const browser = await chromium.launch();
@@ -305,7 +384,7 @@ async function main() {
     });
     const page = await context.newPage();
 
-    const target = `${opts.url}/${opts.city}?when=${opts.when}&ig=1`;
+    const target = `${opts.url}/${opts.city}?${queryFor(opts, { ig: '1' })}`;
     console.log(`→ ${target}`);
     await page.goto(target, { waitUntil: 'load', timeout: opts.timeout });
 
@@ -329,6 +408,20 @@ async function main() {
       } else {
         console.log('! caption skipped — could not read the pop-up list');
       }
+    }
+
+    const renderCover = await loadCoverRenderer();
+    if (renderCover) {
+      const coverPath = path.join(outDir, `${base}-cover.jpg`);
+      await renderCover(browser, {
+        cityName: CITIES[opts.city],
+        dateLabel: whenLabel(opts),
+        mascotPath: opts.mascot,
+        size: format,
+        outputPath: coverPath,
+        timeout: opts.timeout,
+      });
+      console.log(`✓ ${coverPath}  (${format.width}x${format.height})`);
     }
   } finally {
     await browser.close();

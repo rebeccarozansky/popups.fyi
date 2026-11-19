@@ -17,6 +17,21 @@ The dev server runs against `public/popups.sample.csv` by default, so you don't 
 VITE_SHEET_CSV_URL=https://docs.google.com/spreadsheets/d/e/.../pub?gid=0&single=true&output=csv
 ```
 
+## Instagram maps and captions
+
+With the local site running, [tools/instagram-shot/shot.mjs](tools/instagram-shot/shot.mjs) saves a post-ready map PNG and caption text for one city:
+
+```bash
+node tools/instagram-shot/shot.mjs --city seattle --from 2026-09-17 --to 2026-09-22 --url http://127.0.0.1:5173
+node tools/instagram-shot/shot.mjs --city sanfrancisco --from 2026-09-17 --to 2026-09-22 --url http://127.0.0.1:5173
+```
+
+Custom dates are inclusive (up to 14 days). Like the site, the generator excludes events that have already ended. Without dates it uses the `week` filter; `--when today` and `--when weekend` are also available.
+
+The caption lists each pop-up with its vendor's handle, then residencies in their own section, then the city's hashtags. Residencies only appear when `VITE_RESIDENCY_CSV_URL` is set in `.env.local`.
+
+Outputs go to `screenshots/` with a shared city/date basename. Use `--out` or `--name` to change the destination or basename, and `--no-caption` to skip the text. The default portrait image is **1080 × 1350**; `--format square` (1080 × 1080) and `--format story` (1080 × 1920) are also available.
+
 ## Manual pop-up scraping helper
 
 There is a standalone Python helper in [tools/popup-scraper](tools/popup-scraper) for manually collecting upcoming Seattle pop-up candidates from Hotplate, Eventbrite, saved Instagram/Facebook/Threads captions, JSON-LD event pages, and public calendar feeds. It is not part of the website bundle. See [tools/popup-scraper/README.md](tools/popup-scraper/README.md) for setup, time-frame options, and output files.
