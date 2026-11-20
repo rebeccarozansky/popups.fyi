@@ -3,9 +3,10 @@
  * popups.fyi — Instagram screenshot generator.
  *
  * Renders the map in "instagram mode" (?ig=1, which un-nests every pop-up and
- * hides the interactive chrome) and saves a post-ready PNG, plus a caption
- * file listing the vendors and their handles so they're easy to tag, with
- * residencies in a separate section and the city's hashtags at the bottom.
+ * hides the interactive chrome) and saves a post-ready PNG, a matching cover
+ * JPG for the first slide, plus a caption file listing the vendors and their
+ * handles so they're easy to tag, with residencies in a separate section and
+ * the city's hashtags at the bottom.
  *
  * The page is rendered at HALF the target size with deviceScaleFactor 2 rather
  * than at full size with dsf 1. Both produce a 1080px-wide file, but a 1080px
@@ -27,15 +28,16 @@
  *   --url <base>                   Site root                 (default http://localhost:5173)
  *   --scale <n>                    Device pixel ratio        (default 2)
  *   --name <file>                  Override the output filename
- *   --mascot <file>                Image for the local cover add-on, if installed
+ *   --mascot <file>                Cover image instead of the site logo
  *   --no-caption                   Skip the .txt caption sidecar
  *   --keep-ui                      Leave the dropdown caret / legend close button in
  *   --help
  */
 
 import { chromium } from 'playwright';
-import { access, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { renderCover } from './cover.mjs';
 
 // 4:5 is the tallest aspect the Instagram feed will show without cropping, so
 // it's the default — it gives the map the most room.
@@ -90,7 +92,7 @@ function usage() {
       `  --url      site root                        (default ${DEFAULTS.url})`,
       `  --scale    device pixel ratio               (default ${DEFAULTS.scale})`,
       '  --name     override output filename',
-      '  --mascot   image for the local cover add-on, if installed',
+      '  --mascot   cover image instead of the site logo',
       '  --no-caption   skip the caption .txt',
       '  --keep-ui      keep the dropdown caret + legend close button',
     ].join('\n'),
@@ -192,19 +194,6 @@ function whenLabel(opts) {
   return month(from) === month(to)
     ? `${month(from)} ${day(from)}–${day(to)}`
     : `${month(from)} ${day(from)} – ${month(to)} ${day(to)}`;
-}
-
-// The cover renderer is a local add-on that isn't committed (see .gitignore).
-// When tools/instagram-shot/cover.mjs is present, each run also writes a
-// matching -cover.jpg; without it the map and caption are unaffected.
-const COVER_MODULE = new URL('./cover.mjs', import.meta.url);
-async function loadCoverRenderer() {
-  try {
-    await access(COVER_MODULE);
-  } catch {
-    return null;
-  }
-  return (await import(COVER_MODULE.href)).renderCover;
 }
 
 // Screenshot polish. These are affordances that only make sense when you can
@@ -412,19 +401,16 @@ async function main() {
       }
     }
 
-    const renderCover = await loadCoverRenderer();
-    if (renderCover) {
-      const coverPath = path.join(outDir, `${base}-cover.jpg`);
-      await renderCover(browser, {
-        cityName: CITIES[opts.city],
-        dateLabel: whenLabel(opts),
-        mascotPath: opts.mascot,
-        size: format,
-        outputPath: coverPath,
-        timeout: opts.timeout,
-      });
-      console.log(`✓ ${coverPath}  (${format.width}x${format.height})`);
-    }
+    const coverPath = path.join(outDir, `${base}-cover.jpg`);
+    await renderCover(browser, {
+      cityName: CITIES[opts.city],
+      dateLabel: whenLabel(opts),
+      mascotPath: opts.mascot,
+      size: format,
+      outputPath: coverPath,
+      timeout: opts.timeout,
+    });
+    console.log(`✓ ${coverPath}  (${format.width}x${format.height})`);
   } finally {
     await browser.close();
   }

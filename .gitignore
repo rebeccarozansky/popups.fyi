@@ -11,10 +11,6 @@ tools/popup-entry/
 # Generated Instagram screenshots + captions (tools/instagram-shot)
 screenshots/
 
-# Private for now: the Instagram cover renderer (shot.mjs uses it when it's
-# present) and seasonal mascot artwork.
-tools/instagram-shot/cover.html
-tools/instagram-shot/cover.mjs
-tools/instagram-shot/cover.test.mjs
+# Private for now: seasonal mascot artwork.
 public/pip_halloween.png
 public/pip_halloween.svg

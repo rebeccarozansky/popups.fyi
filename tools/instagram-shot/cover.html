@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>popups.fyi — Instagram cover</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap"
+    />
+    <style>
+      /* Approved portrait design: 540 × 675 CSS pixels rendered at 2×.
+         The renderer sets the viewport height for square and story covers. */
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: #ffffff;
+      }
+
+      .cover {
+        position: relative;
+        width: 540px;
+        height: 100vh;
+        overflow: hidden;
+        background: #ffffff;
+        color: #0a1628;
+        font-family: 'Indie Flower', 'Bradley Hand', cursive;
+        font-weight: 400;
+        font-feature-settings: 'calt' 1, 'dlig' 1, 'ss01' 1;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .mascot {
+        position: absolute;
+        top: 64px;
+        left: 50%;
+        height: 190px;
+        width: auto;
+        transform: translateX(-50%);
+      }
+
+      .headline {
+        position: absolute;
+        top: 294px;
+        left: 28px;
+        right: 28px;
+        margin: 0;
+        text-align: center;
+        font-weight: 400;
+      }
+
+      .intro,
+      .city,
+      .dates {
+        display: block;
+        white-space: nowrap;
+      }
+
+      .intro {
+        font-size: 40px;
+        line-height: 1.35;
+      }
+
+      .city {
+        margin-top: 2px;
+        font-size: 60px;
+        line-height: 1.25;
+      }
+
+      .dates {
+        margin-top: 9px;
+        font-size: 35px;
+        line-height: 1.4;
+      }
+
+      .glyph {
+        display: inline-block;
+        transform-origin: 50% 70%;
+        white-space: pre;
+      }
+
+      .footer {
+        position: absolute;
+        bottom: 37px;
+        left: 40px;
+        right: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 76px;
+      }
+
+      .wordmark {
+        font-size: 23px;
+        line-height: 1.3;
+        white-space: nowrap;
+      }
+
+      /* Indie Flower has no U+2192 arrow. Join its own hyphen and greater-
+         than glyphs so the arrow cannot fall back to a different font. */
+      .arrow {
+        display: inline-flex;
+        align-items: center;
+        font-size: 76px;
+        line-height: 1;
+        transform: rotate(-3deg);
+      }
+
+      .arrow-shaft {
+        display: inline-block;
+        margin-right: -0.13em;
+        transform: scaleX(2.1);
+        transform-origin: right center;
+      }
+
+      @media (max-height: 600px) {
+        .mascot { top: 40px; height: 140px; }
+        .headline { top: 202px; }
+        .intro { font-size: 36px; }
+        .city { font-size: 56px; }
+        .dates { font-size: 32px; }
+        .footer { bottom: 26px; }
+      }
+
+      @media (min-height: 800px) {
+        .mascot { top: 140px; height: 230px; }
+        .headline { top: 420px; }
+        .footer { bottom: 70px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="cover" aria-label="Instagram cover">
+      <img class="mascot" src="{{MASCOT}}" alt="Pip, the popups.fyi mascot" />
+
+      <h1 class="headline" aria-label="{{HEADING}}">
+        <span class="intro" aria-hidden="true">{{INTRO}}</span>
+        <span class="city" aria-hidden="true">{{CITY}}</span>
+        <span class="dates" aria-hidden="true">{{DATES}}</span>
+      </h1>
+
+      <footer class="footer">
+        <span class="wordmark" aria-label="popups.fyi"><span aria-hidden="true">{{WORDMARK}}</span></span>
+        <span class="arrow" role="img" aria-label="Swipe right">
+          <span class="arrow-shaft" aria-hidden="true">-</span><span class="arrow-head" aria-hidden="true">&gt;</span>
+        </span>
+      </footer>
+    </main>
+  </body>
+</html>
