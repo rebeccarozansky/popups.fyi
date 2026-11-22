@@ -154,6 +154,13 @@ function hoursGroups(res, now = DateTime.now()) {
     .sort((a, b) => a.days[0] - b.days[0]);
 }
 
+// Just the days, across every set of hours: "Every Tue & Fri", "Daily". Used
+// in page titles, where the hours would be too long.
+export function formatResidencyDays(res, now) {
+  const days = [...new Set(hoursGroups(res, now).flatMap((group) => group.days))];
+  return formatWeekdays(days.sort((a, b) => a - b));
+}
+
 // One line per set of hours, for the map popup:
 // ["Every Tue · 11:00 AM – 5:00 PM", "Every Fri · 6:00 PM – 10:00 PM"].
 export function formatResidencyHours(res, now) {
