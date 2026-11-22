@@ -19,7 +19,14 @@ import { RESIDENCY_ID_PREFIX } from './lib/csv.js';
 import { FILTERS } from './lib/dateFilters.js';
 import { distanceMeters } from './lib/geo.js';
 import { byStart, emptyListMessage, filterListings, listSummary } from './lib/listing.js';
-import { pagePathFor, parsePagePath, popupSlugs, residencySlugs } from './lib/pages.js';
+import {
+  pagePathFor,
+  parsePagePath,
+  popupSlugs,
+  residencySlugs,
+  vendorPagePathFor,
+  vendorPages,
+} from './lib/pages.js';
 import { residencyEntryNow } from './lib/residencies.js';
 
 // MapLibre is most of the app's JavaScript. Loading the map on its own lets
@@ -152,6 +159,15 @@ export default function App() {
       return path ? new URL(path, window.location.origin).toString() : null;
     },
     [slugs],
+  );
+  // The map's popups link to the vendor's page, when the build makes one.
+  const vendorPageList = useMemo(
+    () => vendorPages(everyPopup, everyResidency),
+    [everyPopup, everyResidency],
+  );
+  const vendorPathFor = useCallback(
+    (item) => vendorPagePathFor(item, vendorPageList),
+    [vendorPageList],
   );
 
   // Measured before paint, so on a prerendered page the sheet stays exactly
@@ -436,6 +452,7 @@ export default function App() {
                     center={city.center}
                     zoom={city.zoom}
                     instagramMode={instagramMode}
+                    vendorPathFor={vendorPathFor}
                   />
                 </Suspense>
               </div>
@@ -484,6 +501,7 @@ export default function App() {
                   center={city.center}
                   zoom={city.zoom}
                   instagramMode={instagramMode}
+                  vendorPathFor={vendorPathFor}
                 />
               </Suspense>
             </div>
