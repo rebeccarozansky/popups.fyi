@@ -131,10 +131,25 @@
         .headline { top: 420px; }
         .footer { bottom: 70px; }
       }
+
+      /* Landscape link-preview card (600 × 315 CSS pixels at 2× = 1200 × 630,
+         the size Open Graph and Twitter cards use): Pip on the left, the
+         headline beside him and the wordmark underneath. No swipe arrow - a
+         link preview isn't a carousel. Two-class selectors so these win over
+         the height media queries above. */
+      .cover.cover--landscape { width: 600px; }
+      .cover--landscape .mascot { top: 38px; left: 56px; height: 238px; transform: none; }
+      .cover--landscape .headline { top: 44px; left: 252px; right: 20px; text-align: left; }
+      .cover--landscape .intro { font-size: 34px; }
+      .cover--landscape .city { margin-top: 0; font-size: 52px; }
+      .cover--landscape .dates { margin-top: 4px; font-size: 30px; }
+      .cover--landscape .footer { left: 252px; right: 20px; bottom: 30px; height: 40px; }
+      .cover--landscape .wordmark { font-size: 22px; }
+      .cover--landscape .arrow { display: none; }
     </style>
   </head>
   <body>
-    <main class="cover" aria-label="Instagram cover">
+    <main class="cover {{LAYOUT}}" aria-label="Instagram cover">
       <img class="mascot" src="{{MASCOT}}" alt="Pip, the popups.fyi mascot" />
 
       <h1 class="headline" aria-label="{{HEADING}}">
