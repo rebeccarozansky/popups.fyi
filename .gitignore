@@ -1,5 +1,7 @@
 node_modules
 dist
+# Page renderer built by `npm run build` (vite build --ssr) for scripts/prerender.mjs
+dist-ssr
 .DS_Store
 *.log
 .env

@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 import PopupCard from './PopupCard.jsx';
 
+// `shareUrlFor` gives Share the pop-up's page URL and `vendorPathFor` the
+// vendor's page (both from src/lib/pages.js). `linkFor` is only passed by the
+// prerendered city pages, whose cards link to those pages.
 export default function PopupList({
   popups,
   onSelect,
@@ -11,6 +14,9 @@ export default function PopupList({
   onToggleSave,
   isPast,
   emptyMessage,
+  shareUrlFor,
+  vendorPathFor,
+  linkFor,
 }) {
   const refs = useRef({});
 
@@ -63,6 +69,9 @@ export default function PopupList({
           isSaved={isSaved ? isSaved(p.id) : false}
           onToggleSave={onToggleSave}
           isPast={isPast ? isPast(p) : false}
+          shareUrlFor={shareUrlFor}
+          vendorPathFor={vendorPathFor}
+          href={linkFor ? linkFor(p) : undefined}
         />
       ))}
     </div>

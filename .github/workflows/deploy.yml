@@ -4,6 +4,17 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # The pages are prerendered from the sheet at build time, so rebuild every
+  # hour to follow it (a little after the hour; GitHub starts scheduled runs
+  # late when it's busy). GitHub turns schedules off in public repos after 60
+  # days without activity in the repository - re-enable it from the Actions
+  # tab if that happens.
+  schedule:
+    - cron: '17 * * * *'
+  # A rebuild on request, e.g. from the sheet right after an edit (README,
+  # "Prerendering").
+  repository_dispatch:
+    types: [sheet-updated]
 
 permissions:
   contents: read
@@ -27,12 +38,19 @@ jobs:
 
       - run: npm ci
 
+      # Builds the app, then prerenders every page from the live sheets. Fails
+      # (and so keeps the last good deploy live) if the sheet can't be read.
       - name: Build
         env:
           VITE_SHEET_CSV_URL: ${{ secrets.VITE_SHEET_CSV_URL }}
           VITE_RESIDENCY_CSV_URL: ${{ secrets.VITE_RESIDENCY_CSV_URL }}
           VITE_CARTO_API_KEY: ${{ secrets.VITE_CARTO_API_KEY }}
         run: npm run build
+
+      # Status codes, titles, canonicals, structured data and the sitemap, as a
+      # crawler without JavaScript sees them. A failure stops the deploy.
+      - name: Check pages
+        run: npm run seo:check
 
       - uses: actions/configure-pages@v5
 

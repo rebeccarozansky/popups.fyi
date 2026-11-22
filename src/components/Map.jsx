@@ -135,7 +135,8 @@ function popupOffsets({ left, right, top, bottom }, dx = 0, dy = 0) {
 // Popup body for one marker. A marker can stand for several dates (a vendor
 // running the same venue all weekend), in which case every date gets its own
 // row and its own link, so tapping a date selects that specific occurrence.
-function popupHtml(group) {
+// `vendorPath` is the vendor's own page (src/lib/pages.js), when it has one.
+function popupHtml(group, vendorPath) {
   const safe = (s) => String(s).replace(/[&<>"]/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c],
   );
@@ -186,6 +187,12 @@ function popupHtml(group) {
   if (group.count === 1) {
     parts.push(`<a href="#" class="pf-detail-link" data-popup-id="${safe(lead.id)}" style="display:inline-block;margin-top:8px">View details</a>`);
   }
+  // A plain link: it leaves the map for the vendor's page.
+  if (vendorPath) {
+    parts.push(
+      `<div style="margin-top:${group.count === 1 ? 4 : 8}px"><a href="${safe(vendorPath)}" class="pf-vendor-link">More from ${safe(lead.name)} →</a></div>`,
+    );
+  }
   return parts.join('');
 }
 
@@ -223,13 +230,14 @@ const IG_MIN_SEPARATION = IG_ICON_PX * IG_INK_RATIO;
 // fanning and the Instagram packing all redraw on map events, not on React
 // renders.
 class PinLayer {
-  constructor(map, { instagramMode, onSelect, findPopup }) {
+  constructor(map, { instagramMode, onSelect, findPopup, vendorPathFor }) {
     this.map = map;
     this.instagramMode = instagramMode;
     // Screenshot mode draws smaller pins; the live site is unchanged.
     this.iconScale = instagramMode ? IG_ICON_SCALE : 1;
     this.onSelect = onSelect;
     this.findPopup = findPopup;
+    this.vendorPathFor = vendorPathFor;
     this.groups = [];
     this.index = buildClusterIndex([]);
     this.spots = new Map(); // spot key -> { key, lat, lng, groups }
@@ -424,7 +432,7 @@ class PinLayer {
     this.closePopup();
     const popup = new Popup({ maxWidth: '300px', focusAfterOpen: false })
       .setLngLat([group.lng, group.lat])
-      .setHTML(popupHtml(group));
+      .setHTML(popupHtml(group, this.vendorPathFor(group.lead)));
     this.popup = popup;
     this.popupKey = group.key;
     this.syncPopup();
@@ -601,12 +609,12 @@ class PinLayer {
 }
 
 // Bridges React props to the PinLayer.
-function MarkersLayer({ map, popups, selectedId, requestSeq, onMarkerSelect, instagramMode }) {
+function MarkersLayer({ map, popups, selectedId, requestSeq, onMarkerSelect, instagramMode, vendorPathFor }) {
   // One pin per vendor+venue. Repeat dates collapse into a single icon
   // carrying a superscript instead of stacking into a cluster bubble.
   const groups = useMemo(() => groupRepeats(popups), [popups]);
   const latest = useRef({});
-  latest.current = { popups, selectedId, onMarkerSelect };
+  latest.current = { popups, selectedId, onMarkerSelect, vendorPathFor };
   const [layer, setLayer] = useState(null);
 
   useEffect(() => {
@@ -614,6 +622,7 @@ function MarkersLayer({ map, popups, selectedId, requestSeq, onMarkerSelect, ins
       instagramMode,
       onSelect: (popup, source) => latest.current.onMarkerSelect?.(popup, { source }),
       findPopup: (id) => (latest.current.popups || []).find((p) => p.id === id),
+      vendorPathFor: (item) => latest.current.vendorPathFor?.(item) || null,
     });
     setLayer(pins);
     return () => {
@@ -724,6 +733,7 @@ export default function MapView({
   center = DEFAULT_CENTER,
   zoom = DEFAULT_ZOOM,
   instagramMode = false,
+  vendorPathFor,
 }) {
   const containerRef = useRef(null);
   const [map, setMap] = useState(null);
@@ -787,6 +797,7 @@ export default function MapView({
             requestSeq={selectedSeq}
             onMarkerSelect={onMarkerSelect}
             instagramMode={instagramMode}
+            vendorPathFor={vendorPathFor}
           />
           <UserDot map={map} coord={userCoord} />
           <FlyTo map={map} coord={userCoord} seq={flyToUserSeq} />

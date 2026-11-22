@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useId } from 'react';
 import CategoryBadge from './CategoryBadge.jsx';
 import ResidencyGlyph from './ResidencyGlyph.jsx';
 import { formatCardDateTime } from '../lib/dateFilters.js';
@@ -6,6 +6,7 @@ import { formatResidencyCaption, formatResidencySchedule, isResidency } from '..
 
 // Hand-drawn inline icons. Wobbly bezier paths + slightly imperfect shapes
 // to match the marker / legend aesthetic. All single-stroke, ink #0A1628.
+// The Instagram, order and map icons are shared with the prerendered pages.
 const ICON_STROKE = {
   width: 16,
   height: 16,
@@ -18,7 +19,7 @@ const ICON_STROKE = {
   'aria-hidden': 'true',
 };
 
-function InstagramIcon() {
+export function InstagramIcon() {
   return (
     <svg {...ICON_STROKE}>
       {/* wobbly rounded square — drawn as a single path so corners feel sketched */}
@@ -31,7 +32,7 @@ function InstagramIcon() {
   );
 }
 
-function OrderIcon() {
+export function OrderIcon() {
   return (
     <svg {...ICON_STROKE}>
       {/* shopping bag — wobbly trapezoid body */}
@@ -42,13 +43,35 @@ function OrderIcon() {
   );
 }
 
-function MapPinIcon() {
+export function MapPinIcon() {
   return (
     <svg {...ICON_STROKE}>
       {/* teardrop pin — wobbly bezier outline */}
       <path d="M12 20.8 C 12 20.8 7.2 15.6 6 12.2 C 4.8 8.7 7 4.4 11.4 4 C 16 3.6 18.8 7.4 18 11.2 C 17.2 14.9 12 20.8 12 20.8 Z" />
       {/* inner dot — slightly off-round */}
       <path d="M12.1 7.6 C 10.7 7.6 9.6 8.7 9.6 10.1 C 9.6 11.5 10.7 12.6 12.1 12.6 C 13.5 12.6 14.6 11.5 14.6 10.1 C 14.6 8.7 13.5 7.6 12.1 7.6 Z" />
+    </svg>
+  );
+}
+
+// Calendar page: wobbly sheet, a header rule, two binding rings and a few
+// days dotted slightly off-grid. Leads to the vendor's upcoming dates.
+export function CalendarIcon() {
+  return (
+    <svg {...ICON_STROKE}>
+      {/* page — a single wobbly path so the corners feel sketched */}
+      <path d="M6.1 5.4 C 4.9 5.6 4.1 6.4 4 7.6 C 3.8 10.4 3.8 15.6 4 18.3 C 4.1 19.5 4.9 20.3 6.1 20.4 C 9.1 20.6 14.9 20.6 17.9 20.4 C 19.1 20.3 19.9 19.5 20 18.3 C 20.2 15.6 20.2 10.4 20 7.6 C 19.9 6.4 19.1 5.6 17.9 5.5 C 14.9 5.3 9.1 5.2 6.1 5.4 Z" />
+      {/* header rule */}
+      <path d="M4.1 9.9 C 9.4 9.7 14.7 9.8 19.9 10" />
+      {/* binding rings */}
+      <path d="M8.4 3.4 C 8.3 4.6 8.4 5.9 8.5 7.1" />
+      <path d="M15.6 3.3 C 15.7 4.5 15.6 5.8 15.5 7.1" />
+      {/* days */}
+      <circle cx="8.3" cy="13.5" r="0.95" fill="#0A1628" stroke="none" />
+      <circle cx="12.1" cy="13.4" r="0.95" fill="#0A1628" stroke="none" />
+      <circle cx="15.8" cy="13.6" r="0.95" fill="#0A1628" stroke="none" />
+      <circle cx="8.4" cy="16.9" r="0.95" fill="#0A1628" stroke="none" />
+      <circle cx="12.2" cy="17" r="0.95" fill="#0A1628" stroke="none" />
     </svg>
   );
 }
@@ -78,7 +101,9 @@ function StarIcon({ filled }) {
   );
 }
 
-function shareUrlFor(popup) {
+// Fallback when the pop-up has no page of its own (see pagePathFor in
+// src/lib/pages.js): the map with the pop-up selected.
+function idShareUrl(popup) {
   const url = new URL(window.location.href);
   // Strip existing query so the share link is clean and unambiguous.
   url.search = '';
@@ -87,8 +112,9 @@ function shareUrlFor(popup) {
   return url.toString();
 }
 
-async function sharePopup(popup) {
-  const url = shareUrlFor(popup);
+// `pageUrl` is the pop-up's own page, which previews properly in group chats.
+async function sharePopup(popup, pageUrl) {
+  const url = pageUrl || idShareUrl(popup);
   const title = popup.location_name
     ? `${popup.name} @ ${popup.location_name}`
     : popup.name;
@@ -113,7 +139,7 @@ async function sharePopup(popup) {
   }
 }
 
-function mapsUrlFor(popup) {
+export function mapsUrlFor(popup) {
   // Always use the lat/lng from the sheet — that's the source of truth and
   // matches the pin shown on our map. Address strings sometimes resolve to
   // the wrong place in Google Maps (chain locations, ambiguous names, etc.).
@@ -123,36 +149,72 @@ function mapsUrlFor(popup) {
   return null;
 }
 
-function stop(e) {
-  e.stopPropagation();
-}
+// Links and buttons inside the card. `relative` lifts them above the card's
+// full-size select button (or the prerendered title link).
+const ACTION_CLASS =
+  'relative w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt';
 
+// `shareUrlFor(popup)` returns the pop-up's page URL, or null to share ?id=.
+// `vendorPathFor(popup)` returns the vendor's page path, or null when the
+// build doesn't make one (then the calendar button is left out).
+// `href` is only set on prerendered pages (src/prerender), where the card's
+// title links to the pop-up's page until the app takes over.
 const PopupCard = forwardRef(function PopupCard(
-  { popup, onClick, isSaved, onToggleSave, isPast },
+  { popup, onClick, isSaved, onToggleSave, isPast, shareUrlFor, vendorPathFor, href },
   ref,
 ) {
   const mapsUrl = mapsUrlFor(popup);
+  const vendorPath = vendorPathFor?.(popup) || null;
   const residency = isResidency(popup);
+  const titleId = useId();
+  const when = formatCardDateTime(popup);
+  const title = (
+    <>
+      {popup.name}
+      {popup.location_name && (
+        <span className="font-normal text-muted"> @ {popup.location_name}</span>
+      )}
+    </>
+  );
   return (
-    <button
+    <article
       ref={ref}
-      type="button"
-      onClick={() => onClick?.(popup)}
-      // Read by the Instagram caption script (tools/instagram-shot), which
-      // lists residencies in a section of their own with this schedule.
+      // Explicit fields for the Instagram caption script (tools/instagram-shot),
+      // so it doesn't depend on this markup. Residency cards also carry their
+      // weekly schedule, which the caption lists in a section of its own.
+      data-popup-card=""
+      data-popup-id={popup.id}
+      data-name={popup.name}
+      data-venue={popup.location_name || undefined}
+      data-when={when}
+      data-instagram={popup.instagram_url || undefined}
       data-residency={residency ? formatResidencyCaption(popup) : undefined}
-      className="w-full text-left bg-white border-b border-hair active:bg-surfacealt px-5 py-4 flex items-start gap-4"
+      className="relative w-full text-left bg-white border-b border-hair active:bg-surfacealt px-5 py-4 flex items-start gap-4"
     >
+      {!href && (
+        // Selecting the card: a transparent button over the whole card, so the
+        // tap target and focus ring are the card's as before, while the links
+        // and buttons below sit on top of it instead of nested inside it.
+        <button
+          type="button"
+          aria-labelledby={titleId}
+          onClick={() => onClick?.(popup)}
+          className="absolute inset-0"
+        />
+      )}
       <div className="flex-1 min-w-0">
-        <div className="text-[16px] font-semibold text-ink leading-tight">
-          {popup.name}
-          {popup.location_name && (
-            <span className="font-normal text-muted"> @ {popup.location_name}</span>
+        <div id={titleId} className="text-[16px] font-semibold text-ink leading-tight">
+          {href ? (
+            <a href={href} className="after:absolute after:inset-0">
+              {title}
+            </a>
+          ) : (
+            title
           )}
         </div>
 
         <div className="mt-1 text-[13px] text-muted">
-          {formatCardDateTime(popup)}
+          {when}
           {residency && (
             <>
               {' '}
@@ -188,9 +250,8 @@ const PopupCard = forwardRef(function PopupCard(
                 href={popup.instagram_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={stop}
                 aria-label="Open Instagram"
-                className="w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt"
+                className={ACTION_CLASS}
               >
                 <InstagramIcon />
               </a>
@@ -200,9 +261,8 @@ const PopupCard = forwardRef(function PopupCard(
                 href={mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={stop}
                 aria-label="Open in Google Maps"
-                className="w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt"
+                className={ACTION_CLASS}
               >
                 <MapPinIcon />
               </a>
@@ -212,37 +272,43 @@ const PopupCard = forwardRef(function PopupCard(
                 href={popup.order_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={stop}
                 aria-label="Open order page"
-                className="w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt"
+                className={ACTION_CLASS}
               >
                 <OrderIcon />
               </a>
             )}
             <button
               type="button"
-              onClick={(e) => {
-                stop(e);
-                sharePopup(popup);
-              }}
+              onClick={() => sharePopup(popup, shareUrlFor?.(popup))}
               aria-label="Share this pop-up"
-              className="w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt"
+              className={ACTION_CLASS}
             >
               <ShareIcon />
             </button>
             {onToggleSave && (
               <button
                 type="button"
-                onClick={(e) => {
-                  stop(e);
-                  onToggleSave(popup.id);
-                }}
+                onClick={() => onToggleSave(popup.id)}
                 aria-label={isSaved ? 'Unsave this pop-up' : 'Save this pop-up'}
                 aria-pressed={!!isSaved}
-                className="w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt"
+                className={ACTION_CLASS}
               >
                 <StarIcon filled={!!isSaved} />
               </button>
+            )}
+            {vendorPath && (
+              // The vendor's page, in this tab: their upcoming pop-ups and
+              // residencies. A plain link, so it also works before the app
+              // has loaded and for search engines.
+              <a
+                href={vendorPath}
+                aria-label={`Upcoming dates from ${popup.name}`}
+                title={`Upcoming dates from ${popup.name}`}
+                className={ACTION_CLASS}
+              >
+                <CalendarIcon />
+              </a>
             )}
           </div>
 
@@ -255,11 +321,13 @@ const PopupCard = forwardRef(function PopupCard(
         <img
           src={popup.image_url}
           alt=""
+          width={64}
+          height={64}
           className="w-16 h-16 object-cover flex-shrink-0"
           loading="lazy"
         />
       )}
-    </button>
+    </article>
   );
 });
 

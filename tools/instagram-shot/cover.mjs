@@ -3,6 +3,9 @@ import { extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DESIGN_WIDTH = 540;
+// The landscape layout (link-preview cards, see scripts/og-images.mjs) is laid
+// out on a wider page: 600 × 315 CSS pixels, 1200 × 630 at 2×.
+const LANDSCAPE_WIDTH = 600;
 const TEMPLATE_URL = new URL('./cover.html', import.meta.url);
 const MASCOT_URL = new URL('../../public/logo.svg', import.meta.url);
 const MASCOT_TYPES = {
@@ -33,8 +36,17 @@ function jitter(text, offset) {
   }).join('');
 }
 
-export async function buildCoverHtml({ cityName, dateLabel, mascotPath = MASCOT_URL }) {
-  if (!cityName || !dateLabel) throw new Error('A cover requires a city and date label.');
+// `dateLabel` makes the cover's last line "for <dateLabel>"; `tagline`
+// replaces that line outright ("this week"). `intro` is the first line.
+export async function buildCoverHtml({
+  cityName,
+  dateLabel,
+  tagline,
+  intro = 'Pop-Ups in',
+  layout = 'portrait',
+  mascotPath = MASCOT_URL,
+}) {
+  if (!cityName || !(dateLabel || tagline)) throw new Error('A cover requires a city and date label.');
 
   // Overrides are local files; leave the site's logo and normal default intact.
   const mascotFile = mascotPath instanceof URL ? fileURLToPath(mascotPath) : mascotPath;
@@ -45,15 +57,17 @@ export async function buildCoverHtml({ cityName, dateLabel, mascotPath = MASCOT_
     readFile(TEMPLATE_URL, 'utf8'),
     readFile(mascotFile),
   ]);
+  const lastLine = tagline || `for ${dateLabel}`;
   const content = {
+    LAYOUT: layout === 'landscape' ? 'cover--landscape' : 'cover--portrait',
     MASCOT: `data:${mascotType};base64,${mascot.toString('base64')}`,
-    HEADING: escapeHtml(`Pop-Ups in ${cityName} for ${dateLabel}`),
+    HEADING: escapeHtml(`${intro} ${cityName} ${lastLine}`),
   };
   let offset = 0;
   for (const [key, text] of Object.entries({
-    INTRO: 'Pop-Ups in',
+    INTRO: intro,
     CITY: cityName,
-    DATES: `for ${dateLabel}`,
+    DATES: lastLine,
     WORDMARK: 'popups.fyi',
   })) {
     content[key] = jitter(text, offset);
@@ -65,17 +79,20 @@ export async function buildCoverHtml({ cityName, dateLabel, mascotPath = MASCOT_
 export async function renderCover(browser, {
   cityName,
   dateLabel,
+  tagline,
+  intro,
+  layout = 'portrait',
   mascotPath,
   size,
   outputPath,
   timeout = 45000,
 }) {
-  const html = await buildCoverHtml({ cityName, dateLabel, mascotPath });
+  const html = await buildCoverHtml({ cityName, dateLabel, tagline, intro, layout, mascotPath });
   // Keep the approved type sizes independent of the map's --scale option.
   // All current formats are 1080px wide, so this renders the artwork at 2×.
-  const deviceScaleFactor = size.width / DESIGN_WIDTH;
+  const deviceScaleFactor = size.width / (layout === 'landscape' ? LANDSCAPE_WIDTH : DESIGN_WIDTH);
   const page = await browser.newPage({
-    viewport: { width: DESIGN_WIDTH, height: Math.round(size.height / deviceScaleFactor) },
+    viewport: { width: size.width / deviceScaleFactor, height: Math.round(size.height / deviceScaleFactor) },
     deviceScaleFactor,
     colorScheme: 'light',
   });
@@ -104,8 +121,8 @@ export async function renderCover(browser, {
 
     await page.locator('.cover').screenshot({
       path: outputPath,
-      type: 'jpeg',
-      quality: 98,
+      // Covers are JPEGs; link-preview cards are saved as PNG.
+      ...(/\.png$/i.test(outputPath) ? { type: 'png' } : { type: 'jpeg', quality: 98 }),
       animations: 'disabled',
       scale: 'device',
     });

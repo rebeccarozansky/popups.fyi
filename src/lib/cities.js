@@ -9,11 +9,16 @@
 // bounding box. The bounds fallback is what keeps suburb rows (Bothell,
 // Oakland, …) attached to the metro they belong to without having to
 // enumerate every town in the sheet.
+//
+// `region` and `country` fill in pop-up addresses for search engines
+// (structured data on the prerendered pages, see src/prerender).
 
 export const CITIES = [
   {
     slug: 'seattle',
     name: 'Seattle',
+    region: 'WA',
+    country: 'US',
     timezone: 'America/Los_Angeles',
     center: [47.6062, -122.3321],
     zoom: 12,
@@ -42,6 +47,8 @@ export const CITIES = [
   {
     slug: 'sanfrancisco',
     name: 'San Francisco',
+    region: 'CA',
+    country: 'US',
     timezone: 'America/Los_Angeles',
     center: [37.7749, -122.4194],
     zoom: 12,
@@ -65,6 +72,8 @@ export const CITIES = [
   {
     slug: 'raleigh',
     name: 'Raleigh',
+    region: 'NC',
+    country: 'US',
     timezone: 'America/New_York',
     center: [35.7796, -78.6382],
     zoom: 12,
@@ -92,8 +101,9 @@ export const CITIES = [
 
 export const DEFAULT_CITY_SLUG = 'seattle';
 
-// Alternate URL spellings that redirect to a canonical slug.
-const SLUG_ALIASES = {
+// Alternate URL spellings that redirect to a canonical slug. The build writes
+// a small redirect page for each (scripts/prerender.mjs).
+export const SLUG_ALIASES = {
   'san-francisco': 'sanfrancisco',
   san_francisco: 'sanfrancisco',
   sf: 'sanfrancisco',

@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr src/prerender/entry.js --outDir dist-ssr && node scripts/prerender.mjs",
     "preview": "vite preview",
+    "serve:pages": "node scripts/serve-pages.mjs dist",
+    "seo:check": "node scripts/seo-check.mjs",
+    "og:images": "node scripts/og-images.mjs",
+    "test": "node --test src/lib/pages.test.mjs tools/instagram-shot/cover.test.mjs",
     "shot": "node tools/instagram-shot/shot.mjs"
   },
   "dependencies": {

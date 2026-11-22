@@ -190,6 +190,17 @@ body {
   font-weight: 600;
 }
 
+/* Leaves the map for the vendor's own page; quieter than "View details". */
+.maplibregl-popup a.pf-vendor-link {
+  font-size: 13px;
+  color: #6b7280;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.maplibregl-popup a.pf-vendor-link:hover {
+  color: #0a1628;
+}
+
 /* Pins are plain DOM elements laid over the map canvas. */
 .pf-pin {
   cursor: pointer;

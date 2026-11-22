@@ -1,4 +1,6 @@
-const PREFIX = 'popups.fyi/';
+import { cityHeading } from '../lib/pages.js';
+
+export const PREFIX = 'popups.fyi/';
 
 // Deterministic pseudo-random in [0, 1) so the title doesn't reshuffle on
 // every render (which would look twitchy and AI-generated). Each character
@@ -11,7 +13,8 @@ function seed(i) {
 // Hand-drawn jitter applied per character. `offset` keeps the seed sequence
 // running across separate runs of text, so the city reads as part of the same
 // scribbled wordmark rather than a second, independently-jittered word.
-function Jitter({ text, offset = 0 }) {
+// Also used by the prerendered pages' header (src/prerender).
+export function Jitter({ text, offset = 0 }) {
   return [...text].map((ch, i) => {
     const idx = i + offset;
     const rotate = (seed(idx) - 0.5) * 8;
@@ -33,13 +36,20 @@ function Jitter({ text, offset = 0 }) {
 export default function Header({ city, cities, onCityChange, onSubmitClick, showSubmit = true }) {
   return (
     <header className="h-12 md:h-14 border-b border-hair bg-white flex items-center px-5 relative z-30">
+      {/* The page's one heading, for search engines and screen readers. It's
+          visually hidden: the wordmark can't be the <h1> without pulling the
+          city picker's option names into it. */}
+      <h1 className="sr-only">{cityHeading(city)}</h1>
       {/* Decorative: the wordmark right next to it already carries the
-          accessible name, so the mascot stays out of the a11y tree. */}
+          accessible name, so the mascot stays out of the a11y tree. The
+          width/height reserve its space before the SVG arrives. */}
       <img
         src="/logo.svg"
         alt=""
         aria-hidden="true"
         draggable="false"
+        width={289}
+        height={412}
         className="h-10 w-auto md:h-12 shrink-0 select-none mr-1.5"
       />
       <span className="pf-wordmark text-[22px] sm:text-[26px] leading-none text-ink select-none inline-flex items-center">
