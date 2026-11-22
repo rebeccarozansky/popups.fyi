@@ -1,10 +1,10 @@
 import { InstagramIcon } from '../components/PopupCard.jsx';
 import { ActionLink, DateList, MapLink, Note, Section } from './StaticPage.jsx';
 
-// Everything one vendor has on in a city: upcoming pop-ups, residencies and
-// recent dates, with their Instagram. No Event markup here: Google's event
-// results only use pages about a single event.
-export default function VendorPage({ vendor, city, intro, upcoming, residencies, recent, mapPath }) {
+// What one vendor has coming up in a city: upcoming pop-ups and running
+// residencies, with their Instagram. Past dates aren't listed. No Event markup
+// here: Google's event results only use pages about a single event.
+export default function VendorPage({ vendor, city, intro, upcoming, residencies, mapPath }) {
   return (
     <article className="mt-3">
       <h1 className="text-[24px] md:text-[28px] leading-tight font-semibold text-ink">{vendor.name}</h1>
@@ -32,12 +32,6 @@ export default function VendorPage({ vendor, city, intro, upcoming, residencies,
       {residencies.length > 0 && (
         <Section title="Residencies">
           <DateList items={residencies} />
-        </Section>
-      )}
-
-      {recent.length > 0 && (
-        <Section title="Recent pop-ups">
-          <DateList items={recent} />
         </Section>
       )}
 

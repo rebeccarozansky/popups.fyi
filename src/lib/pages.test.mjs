@@ -9,6 +9,8 @@ import {
   residencySlugs,
   slugify,
   vendorKey,
+  vendorPagePathFor,
+  vendorPages,
   vendorSlugs,
 } from './pages.js';
 
@@ -99,4 +101,33 @@ test('page paths parse back to city, kind and slug', () => {
   assert.equal(parsePagePath('/seattle'), null);
   assert.equal(parsePagePath('/seattle/menus/x'), null);
   assert.equal(parsePagePath('/nowhere/popups/x'), null);
+});
+
+test('vendors have a page while active in the last 90 days, one per city', () => {
+  const now = DateTime.fromISO('2026-11-21T12:00', { zone });
+  const sf = { city: 'San Francisco', lat: 37.77, lng: -122.42 };
+  const rows = [
+    popup(1, 'Béo Béo Bakery', 'Parlour', '2026-11-25T09:00'), // upcoming
+    popup(2, 'Thức Cafe', 'Chibi Tings', '2026-10-01T09:00'), // 51 days ago
+    popup(3, 'Thuc Cafe', 'Chibi Tings', '2026-06-01T09:00'), // same vendor, older
+    popup(4, 'Old Bakery', 'Somewhere', '2026-05-01T09:00'), // inactive
+    popup(5, 'Béo Béo Bakery', 'Parlour', '2026-11-26T09:00', sf), // same vendor, SF
+  ];
+  const residency = {
+    kind: 'residency',
+    id: 'res-1',
+    name: 'Standard Matcha',
+    lat: 47.6,
+    lng: -122.33,
+    city: 'Seattle',
+    lastDay: DateTime.fromISO('2026-09-30', { zone }), // ended 52 days ago
+  };
+  const pages = vendorPages(rows, [residency], now);
+  assert.equal(vendorPagePathFor(rows[0], pages), '/seattle/vendors/beo-beo-bakery');
+  assert.equal(vendorPagePathFor(rows[4], pages), '/sanfrancisco/vendors/beo-beo-bakery');
+  assert.equal(vendorPagePathFor(rows[2], pages), '/seattle/vendors/thuc-cafe');
+  assert.equal(vendorPagePathFor(rows[1], pages), vendorPagePathFor(rows[2], pages));
+  assert.equal(vendorPagePathFor(residency, pages), '/seattle/vendors/standard-matcha');
+  assert.equal(vendorPagePathFor(rows[3], pages), null);
+  assert.equal(vendorPagePathFor({ ...rows[0], lat: 0, lng: 0, city: 'Nowhere' }, pages), null);
 });

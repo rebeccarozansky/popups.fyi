@@ -76,7 +76,7 @@ export default function PopupPage({ popup, vendor, ended, instagram, mapsUrl, ma
         )}
         <p className="mt-3 text-[13px]">
           <a href={vendor.path} className="underline underline-offset-2 text-ink">
-            All {vendor.name} dates
+            All upcoming {vendor.name} dates
           </a>
         </p>
       </Section>

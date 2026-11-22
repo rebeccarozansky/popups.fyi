@@ -17,7 +17,6 @@ import { byStart, emptyListMessage, filterListings, listSummary } from '../lib/l
 import {
   SITE_NAME,
   SITE_ORIGIN,
-  VENDOR_ACTIVE_DAYS,
   absoluteUrl,
   cityPageTitle,
   pagePathFor,
@@ -26,8 +25,8 @@ import {
   residencyHasPage,
   residencySlugs,
   vendorKey,
-  vendorPath,
-  vendorSlugs,
+  vendorPagePathFor,
+  vendorPages,
 } from '../lib/pages.js';
 import {
   formatResidencyCaption,
@@ -121,8 +120,9 @@ function groupVendors(city, cityPopups, cityResidencies, now) {
   cityPopups.forEach((popup) => add(popup, 'popups'));
   cityResidencies.forEach((residency) => add(residency, 'residencies'));
 
-  const slugs = vendorSlugs(groups.keys());
-  const activeSince = now.minus({ days: VENDOR_ACTIVE_DAYS });
+  // Which vendors get a page, and its address: the same rule the app uses to
+  // link to them from the map (src/lib/pages.js).
+  const pages = vendorPages(cityPopups, cityResidencies, now);
   for (const vendor of groups.values()) {
     vendor.popups.sort(byStart);
     // The spelling used most; the newest one breaks ties.
@@ -136,16 +136,11 @@ function groupVendors(city, cityPopups, cityResidencies, now) {
         .concat(vendor.residencies)
         .map((item) => instagramProfile(item.instagram_url))
         .find(Boolean) || null;
-    vendor.slug = slugs.get(vendor.key);
-    vendor.path = vendorPath(city.slug, vendor.slug);
-    vendor.url = absoluteUrl(vendor.path);
+    vendor.path = vendorPagePathFor(vendor.popups[0] || vendor.residencies[0], pages);
+    vendor.hasPage = Boolean(vendor.path);
+    vendor.url = vendor.path ? absoluteUrl(vendor.path) : null;
     vendor.upcoming = vendor.popups.filter((p) => p.end > now);
-    vendor.recent = vendor.popups.filter((p) => p.end <= now && p.end > activeSince).reverse();
     vendor.liveResidencies = vendor.residencies.filter((r) => !r.lastDay || r.lastDay.endOf('day') > now);
-    vendor.hasPage =
-      vendor.upcoming.length > 0 ||
-      vendor.recent.length > 0 ||
-      vendor.residencies.some((r) => !r.lastDay || r.lastDay.endOf('day') > activeSince);
   }
   return groups;
 }
@@ -432,7 +427,10 @@ function vendorPage(vendor, city, slugs, now) {
     return text;
   };
   const residency = vendor.liveResidencies[0];
-  const last = vendor.recent[0];
+  // The page lists upcoming dates only. A vendor with none (they popped up in
+  // the last few months) keeps a page, so links to it still work, but it's
+  // noindex and out of the sitemap until they list a new date.
+  const indexable = vendor.upcoming.length > 0 || vendor.liveResidencies.length > 0;
   const description =
     vendor.upcoming.length > 0
       ? sentences(upcomingSentence(), 'Times, addresses and Instagram on popups.fyi.')
@@ -443,8 +441,7 @@ function vendorPage(vendor, city, slugs, now) {
           )
         : sentences(
             `${vendor.name} has no upcoming pop-ups listed in ${city.name} right now.`,
-            last ? `Most recently: ${dayLabel(last.start)}${last.location_name ? ` at ${last.location_name}` : ''}.` : '',
-            'Past dates and Instagram on popups.fyi.',
+            vendor.instagram ? `Follow ${vendor.instagram.handle} on Instagram for their next date.` : '',
           );
   const crumbs = [
     { name: city.name, path: pathForCity(city) },
@@ -458,8 +455,7 @@ function vendorPage(vendor, city, slugs, now) {
         city={city}
         intro={`${intro.charAt(0).toUpperCase()}${intro.slice(1)}.`}
         upcoming={vendor.upcoming.map((p) => popupRow(p, slugs, now))}
-        residencies={vendor.residencies.filter((r) => residencyHasPage(r, now)).map((r) => residencyRow(r, slugs, now))}
-        recent={vendor.recent.map((p) => popupRow(p, slugs, now))}
+        residencies={vendor.liveResidencies.map((r) => residencyRow(r, slugs, now))}
         mapPath={first ? `${pathForCity(city)}?id=${encodeURIComponent(first.id)}` : pathForCity(city)}
       />
     </StaticPage>,
@@ -477,11 +473,12 @@ function vendorPage(vendor, city, slugs, now) {
       description,
       image: ogImage(city.slug),
       imageAlt: `Pop-Ups in ${city.name} this week, on popups.fyi`,
+      noindex: !indexable,
       jsonLd: [crumbsJsonLd(crumbs)],
     }),
     root: body,
     app: false,
-    indexable: true,
+    indexable,
   };
 }
 

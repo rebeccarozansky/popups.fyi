@@ -217,21 +217,23 @@ for (const url of urls) {
 // can have none - so they aren't required here. Any that a city page lists
 // are covered by the internal link check below.
 
-// 4. Pop-ups and residencies that have ended: still pages, but noindex, out of
-//    the sitemap, and saying so.
-let endedChecked = 0;
+// 4. Pop-ups and residencies that have ended, and vendors with nothing coming
+//    up: still pages (links to them keep working), but noindex, out of the
+//    sitemap, and saying so.
+let noindexChecked = 0;
 for (const city of CITIES) {
   for (const [dir, kind, ended] of [
     ['popups', 'popup', /This pop-up has ended/],
     ['residencies', 'residency', /This residency has ended/],
+    ['vendors', 'vendor', /No upcoming pop-ups are listed/],
   ]) {
     for (const file of await pageFiles(path.join(city.slug, dir))) {
       const urlPath = `/${city.slug}/${dir}/${file.replace(/\.html$/, '')}`;
       if (urls.includes(`${SITE_ORIGIN}${urlPath}`)) continue;
       const page = await checkPage(urlPath, kind);
-      endedChecked += 1;
+      noindexChecked += 1;
       if (page && !page.noindex) fail(urlPath, 'not in the sitemap but indexable');
-      if (page && !ended.test(page.html)) fail(urlPath, "left out of the sitemap but doesn't say it has ended");
+      if (page && !ended.test(page.html)) fail(urlPath, "left out of the sitemap but doesn't say why");
     }
   }
 }
@@ -250,7 +252,7 @@ server.close();
 
 const summary = Object.entries(kinds).map(([kind, n]) => `${n} ${kind}`).join(', ');
 console.log(
-  `Checked ${urls.length} sitemap URLs (${summary}), ${endedChecked} ended pages, ` +
+  `Checked ${urls.length} sitemap URLs (${summary}), ${noindexChecked} noindex pages (ended or nothing upcoming), ` +
     `${Object.keys(SLUG_ALIASES).length} shortcuts, ${linksChecked} internal links, robots.txt and 404s.`,
 );
 for (const warning of warnings) console.warn(`  ! ${warning}`);

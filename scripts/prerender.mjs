@@ -172,7 +172,7 @@ async function main() {
   const sitemapCount = site.pages.filter((page) => page.indexable).length;
   console.log(`  city pages: ${count('city')} + the home page`);
   console.log(`  pop-up pages: ${count('popup', true)} upcoming, ${count('popup', false)} ended (noindex)`);
-  console.log(`  vendor pages: ${count('vendor')}`);
+  console.log(`  vendor pages: ${count('vendor', true)} with upcoming dates, ${count('vendor', false)} with none (noindex)`);
   console.log(`  residency pages: ${count('residency', true)} running, ${count('residency', false)} ended (noindex)`);
   console.log(`  shortcut redirects: ${site.aliases.length}`);
   console.log(`  sitemap.xml: ${sitemapCount} URLs`);

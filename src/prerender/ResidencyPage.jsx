@@ -30,7 +30,7 @@ export default function ResidencyPage({ residency, vendor, ended, next, nextDate
         <EndedNotice>
           This residency has ended. See{' '}
           <a href={vendor.path} className="underline underline-offset-2 font-semibold">
-            {vendor.name}&apos;s other dates
+            {vendor.name}&apos;s upcoming dates
           </a>
           .
         </EndedNotice>
@@ -91,7 +91,7 @@ export default function ResidencyPage({ residency, vendor, ended, next, nextDate
       <Section title={`More from ${vendor.name}`}>
         <p className="mt-2 text-[13px]">
           <a href={vendor.path} className="underline underline-offset-2 text-ink">
-            All {vendor.name} dates
+            All upcoming {vendor.name} dates
           </a>
         </p>
       </Section>

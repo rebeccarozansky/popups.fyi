@@ -150,6 +150,43 @@ export function pagePathFor(item, slugs, now = DateTime.now()) {
   return slug && popupHasPage(item, now) ? popupPath(city.slug, slug) : null;
 }
 
+// Every vendor page the build writes, as "<city>/<vendor key>" -> path, or
+// null for a vendor with no page. A vendor has a page while they have a
+// pop-up that ended within VENDOR_ACTIVE_DAYS (or hasn't ended), or a
+// residency that's running or ended within that time. Slugs are worked out
+// over every vendor in the city, page or not, so they never shift.
+export function vendorPages(popups, residencies, now = DateTime.now()) {
+  const activeSince = now.minus({ days: VENDOR_ACTIVE_DAYS }).toMillis();
+  const byCity = new Map(); // city slug -> Map(vendor key -> active?)
+  const note = (item, active) => {
+    const city = cityForPopup(item);
+    if (!city) return;
+    if (!byCity.has(city.slug)) byCity.set(city.slug, new Map());
+    const vendors = byCity.get(city.slug);
+    const key = vendorKey(item.name);
+    vendors.set(key, Boolean(vendors.get(key)) || active);
+  };
+  for (const popup of popups) note(popup, popup.end.toMillis() > activeSince);
+  for (const residency of residencies) {
+    note(residency, !residency.lastDay || residency.lastDay.endOf('day').toMillis() > activeSince);
+  }
+  const pages = new Map();
+  for (const [citySlug, vendors] of byCity) {
+    const slugs = vendorSlugs(vendors.keys());
+    for (const [key, active] of vendors) {
+      pages.set(`${citySlug}/${key}`, active ? vendorPath(citySlug, slugs.get(key)) : null);
+    }
+  }
+  return pages;
+}
+
+// The path of the page for a pop-up's or residency's vendor, or null.
+// `pages` comes from vendorPages.
+export function vendorPagePathFor(item, pages) {
+  const city = cityForPopup(item);
+  return (city && pages.get(`${city.slug}/${vendorKey(item.name)}`)) || null;
+}
+
 const PAGE_KINDS = ['popups', 'vendors', 'residencies'];
 
 // "/seattle/popups/<slug>" -> { city, kind: 'popups', slug }; null for any
