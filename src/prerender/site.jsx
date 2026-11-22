@@ -269,13 +269,16 @@ function nextFor(vendor, slugs, now) {
     : null;
 }
 
-function popupPage(popup, city, vendor, slugs, now) {
+// `withTime` adds the start time to the title and breadcrumb, for a vendor
+// with two sittings at one venue on the same day.
+function popupPage(popup, city, vendor, slugs, now, withTime = false) {
   const path = pagePathFor(popup, slugs, now);
   const url = absoluteUrl(path);
   const ended = popup.end <= now;
   const venue = popup.location_name;
   const name = venue ? `${popup.name} at ${venue}` : popup.name;
-  const title = `${name}, ${dayLabel(popup.start)} · ${city.name} pop-up`;
+  const when = withTime ? `${dayLabel(popup.start)}, ${popup.start.toFormat('h:mm a')}` : dayLabel(popup.start);
+  const title = `${name}, ${when} · ${city.name} pop-up`;
   const where = wherePhrase(popup, city);
   const next = ended ? nextFor(vendor, slugs, now) : null;
   const description = ended
@@ -292,7 +295,7 @@ function popupPage(popup, city, vendor, slugs, now) {
   const crumbs = [
     { name: city.name, path: pathForCity(city) },
     { name: vendor.name, path: vendor.path },
-    { name: dayLabel(popup.start), path },
+    { name: when, path },
   ];
   const moreDates = [
     ...vendor.upcoming.filter((p) => p.id !== popup.id).map((p) => popupRow(p, slugs, now)),
@@ -553,8 +556,12 @@ export function buildSite({ popups, residencies, sheets, now = DateTime.now() })
     const vendorOf = (item) => vendors.get(vendorKey(item.name));
 
     pages.push(...cityPages(city, { cityPopups, cityResidencies, slugs, now }));
-    for (const popup of cityPopups) {
-      if (popupHasPage(popup, now)) pages.push(popupPage(popup, city, vendorOf(popup), slugs, now));
+    const withPages = cityPopups.filter((popup) => popupHasPage(popup, now));
+    const sameDay = (popup) => `${vendorKey(popup.name)}|${popup.location_name || ''}|${popup.start.toISODate()}`;
+    const sittings = new Map();
+    for (const popup of withPages) sittings.set(sameDay(popup), (sittings.get(sameDay(popup)) || 0) + 1);
+    for (const popup of withPages) {
+      pages.push(popupPage(popup, city, vendorOf(popup), slugs, now, sittings.get(sameDay(popup)) > 1));
     }
     for (const residency of cityResidencies) {
       if (residencyHasPage(residency, now)) pages.push(residencyPage(residency, city, vendorOf(residency), slugs, now));

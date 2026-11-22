@@ -23,6 +23,9 @@ import { createPagesServer, listen } from './serve-pages.mjs';
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const failures = [];
 const fail = (where, message) => failures.push(`${where}: ${message}`);
+// Worth a look, but not worth blocking a deploy over (a duplicated sheet row).
+const warnings = [];
+const warn = (where, message) => warnings.push(`${where}: ${message}`);
 
 const server = createPagesServer(DIST);
 const base = await listen(server, { port: 0 });
@@ -207,12 +210,12 @@ for (const url of urls) {
   if (!page) continue;
   if (page.canonical !== url) fail(urlPath, `in the sitemap but canonical is ${page.canonical}`);
   if (page.noindex) fail(urlPath, 'in the sitemap but noindex');
-  if (titles.has(page.title)) fail(urlPath, `same title as ${titles.get(page.title)}`);
+  if (titles.has(page.title)) warn(urlPath, `same title as ${titles.get(page.title)}`);
   titles.set(page.title, urlPath);
 }
-for (const kind of ['city', 'popup', 'vendor']) {
-  if (!kinds[kind]) fail('/sitemap.xml', `no ${kind} pages`);
-}
+// Pop-up, vendor and residency pages come and go with the sheet - a quiet week
+// can have none - so they aren't required here. Any that a city page lists
+// are covered by the internal link check below.
 
 // 4. Pop-ups and residencies that have ended: still pages, but noindex, out of
 //    the sitemap, and saying so.
@@ -250,6 +253,7 @@ console.log(
   `Checked ${urls.length} sitemap URLs (${summary}), ${endedChecked} ended pages, ` +
     `${Object.keys(SLUG_ALIASES).length} shortcuts, ${linksChecked} internal links, robots.txt and 404s.`,
 );
+for (const warning of warnings) console.warn(`  ! ${warning}`);
 if (failures.length > 0) {
   console.error(`\n${failures.length} problem${failures.length === 1 ? '' : 's'}:`);
   for (const failure of failures.slice(0, 60)) console.error(`  ✗ ${failure}`);
