@@ -56,13 +56,14 @@ function isThisWeekend(popup, now, zone) {
   return startLocal >= start && startLocal <= end;
 }
 
-// "This week": from now through end-of-day Sunday in anchor tz.
+// "This week": the next 7 days - today and the six days after it, through
+// end of day in the anchor tz - rather than the calendar week, so a visit on
+// a Saturday or Sunday still shows the week ahead instead of a day or two.
 // Past-event filtering (end < now) already happens upstream, so events that
 // are currently in progress show up naturally.
+const WEEK_DAYS = 7;
 function isThisWeek(popup, now, zone) {
-  const dow = now.weekday; // 1..7, where 7=Sun
-  const daysUntilSunday = 7 - dow; // Sun=0
-  const windowEnd = now.plus({ days: daysUntilSunday }).endOf('day');
+  const windowEnd = now.plus({ days: WEEK_DAYS - 1 }).endOf('day');
   const startLocal = popup.start.setZone(zone);
   return startLocal <= windowEnd;
 }
