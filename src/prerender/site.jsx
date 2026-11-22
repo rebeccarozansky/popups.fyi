@@ -168,7 +168,7 @@ function cityDescription(city, list) {
   return clip(`${counts} in ${city.name} this week. Dates, times and addresses on a map.`);
 }
 
-function cityPages(city, { cityPopups, cityResidencies, slugs, now }) {
+function cityPages(city, { cityPopups, cityResidencies, slugs, vendorPageList, now }) {
   const list = filterListings(
     cityPopups,
     cityResidencies.length > 0 ? cityResidencies : null,
@@ -185,6 +185,7 @@ function cityPages(city, { cityPopups, cityResidencies, slugs, now }) {
       emptyMessage={emptyListMessage({ cityName: city.name, anyListed: cityPopups.length > 0 })}
       hasResidencies={cityResidencies.length > 0}
       linkFor={(item) => pagePathFor(item, slugs, now)}
+      vendorPathFor={(item) => vendorPagePathFor(item, vendorPageList)}
     />,
   );
   const path = pathForCity(city);
@@ -545,6 +546,8 @@ ${urls.map((url) => `  <url><loc>${escapeHtml(url)}</loc></url>`).join('\n')}
 // `sheets` is { popups: { csv, fetchedAt }, residencies: { csv, fetchedAt } | null }.
 export function buildSite({ popups, residencies, sheets, now = DateTime.now() }) {
   const slugs = { popups: popupSlugs(popups), residencies: residencySlugs(residencies) };
+  // Vendor page addresses, exactly as the app works them out for its links.
+  const vendorPageList = vendorPages(popups, residencies, now);
   const pages = [];
   for (const city of CITIES) {
     const cityPopups = popupsInCity(popups, city);
@@ -552,7 +555,7 @@ export function buildSite({ popups, residencies, sheets, now = DateTime.now() })
     const vendors = groupVendors(city, cityPopups, cityResidencies, now);
     const vendorOf = (item) => vendors.get(vendorKey(item.name));
 
-    pages.push(...cityPages(city, { cityPopups, cityResidencies, slugs, now }));
+    pages.push(...cityPages(city, { cityPopups, cityResidencies, slugs, vendorPageList, now }));
     const withPages = cityPopups.filter((popup) => popupHasPage(popup, now));
     const sameDay = (popup) => `${vendorKey(popup.name)}|${popup.location_name || ''}|${popup.start.toISODate()}`;
     const sittings = new Map();

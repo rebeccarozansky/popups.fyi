@@ -160,7 +160,8 @@ export default function App() {
     },
     [slugs],
   );
-  // The map's popups link to the vendor's page, when the build makes one.
+  // The map's popups and the cards' calendar buttons link to the vendor's
+  // page, when the build makes one.
   const vendorPageList = useMemo(
     () => vendorPages(everyPopup, everyResidency),
     [everyPopup, everyResidency],
@@ -433,6 +434,7 @@ export default function App() {
                     isPast={isPast}
                     emptyMessage={emptyMessage}
                     shareUrlFor={shareUrlFor}
+                    vendorPathFor={vendorPathFor}
                   />
                   <CityLinks city={city} cities={cities} onSelect={selectCity} />
                 </div>
@@ -559,6 +561,7 @@ export default function App() {
                   isPast={isPast}
                   emptyMessage={emptyMessage}
                   shareUrlFor={shareUrlFor}
+                  vendorPathFor={vendorPathFor}
                 />
                 <CityLinks city={city} cities={cities} onSelect={selectCity} />
               </BottomSheet>

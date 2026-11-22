@@ -54,6 +54,28 @@ export function MapPinIcon() {
   );
 }
 
+// Calendar page: wobbly sheet, a header rule, two binding rings and a few
+// days dotted slightly off-grid. Leads to the vendor's upcoming dates.
+export function CalendarIcon() {
+  return (
+    <svg {...ICON_STROKE}>
+      {/* page — a single wobbly path so the corners feel sketched */}
+      <path d="M6.1 5.4 C 4.9 5.6 4.1 6.4 4 7.6 C 3.8 10.4 3.8 15.6 4 18.3 C 4.1 19.5 4.9 20.3 6.1 20.4 C 9.1 20.6 14.9 20.6 17.9 20.4 C 19.1 20.3 19.9 19.5 20 18.3 C 20.2 15.6 20.2 10.4 20 7.6 C 19.9 6.4 19.1 5.6 17.9 5.5 C 14.9 5.3 9.1 5.2 6.1 5.4 Z" />
+      {/* header rule */}
+      <path d="M4.1 9.9 C 9.4 9.7 14.7 9.8 19.9 10" />
+      {/* binding rings */}
+      <path d="M8.4 3.4 C 8.3 4.6 8.4 5.9 8.5 7.1" />
+      <path d="M15.6 3.3 C 15.7 4.5 15.6 5.8 15.5 7.1" />
+      {/* days */}
+      <circle cx="8.3" cy="13.5" r="0.95" fill="#0A1628" stroke="none" />
+      <circle cx="12.1" cy="13.4" r="0.95" fill="#0A1628" stroke="none" />
+      <circle cx="15.8" cy="13.6" r="0.95" fill="#0A1628" stroke="none" />
+      <circle cx="8.4" cy="16.9" r="0.95" fill="#0A1628" stroke="none" />
+      <circle cx="12.2" cy="17" r="0.95" fill="#0A1628" stroke="none" />
+    </svg>
+  );
+}
+
 function ShareIcon() {
   return (
     <svg {...ICON_STROKE}>
@@ -133,13 +155,16 @@ const ACTION_CLASS =
   'relative w-8 h-8 border border-hair flex items-center justify-center active:bg-surfacealt';
 
 // `shareUrlFor(popup)` returns the pop-up's page URL, or null to share ?id=.
+// `vendorPathFor(popup)` returns the vendor's page path, or null when the
+// build doesn't make one (then the calendar button is left out).
 // `href` is only set on prerendered pages (src/prerender), where the card's
 // title links to the pop-up's page until the app takes over.
 const PopupCard = forwardRef(function PopupCard(
-  { popup, onClick, isSaved, onToggleSave, isPast, shareUrlFor, href },
+  { popup, onClick, isSaved, onToggleSave, isPast, shareUrlFor, vendorPathFor, href },
   ref,
 ) {
   const mapsUrl = mapsUrlFor(popup);
+  const vendorPath = vendorPathFor?.(popup) || null;
   const residency = isResidency(popup);
   const titleId = useId();
   const when = formatCardDateTime(popup);
@@ -271,6 +296,19 @@ const PopupCard = forwardRef(function PopupCard(
               >
                 <StarIcon filled={!!isSaved} />
               </button>
+            )}
+            {vendorPath && (
+              // The vendor's page, in this tab: their upcoming pop-ups and
+              // residencies. A plain link, so it also works before the app
+              // has loaded and for search engines.
+              <a
+                href={vendorPath}
+                aria-label={`Upcoming dates from ${popup.name}`}
+                title={`Upcoming dates from ${popup.name}`}
+                className={ACTION_CLASS}
+              >
+                <CalendarIcon />
+              </a>
             )}
           </div>
 

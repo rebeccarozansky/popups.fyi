@@ -21,8 +21,9 @@ const noop = () => {};
 // until MapLibre draws into it.
 //
 // The cards' titles link to each pop-up's page (`linkFor`), so search engines
-// and visitors who tap before the app loads can reach it.
-export default function CityShell({ city, cities, list, summary, emptyMessage, hasResidencies, linkFor }) {
+// and visitors who tap before the app loads can reach it; their calendar
+// buttons link to the vendors' pages (`vendorPathFor`), as in the app.
+export default function CityShell({ city, cities, list, summary, emptyMessage, hasResidencies, linkFor, vendorPathFor }) {
   return (
     <div className="app-shell h-screen flex flex-col">
       <Header city={city} cities={cities} onCityChange={noop} onSubmitClick={noop} />
@@ -53,6 +54,7 @@ export default function CityShell({ city, cities, list, summary, emptyMessage, h
               onToggleSave={noop}
               emptyMessage={emptyMessage}
               linkFor={linkFor}
+              vendorPathFor={vendorPathFor}
             />
             <CityLinks city={city} cities={cities} />
           </div>
