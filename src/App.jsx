@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
 import Header from './components/Header.jsx';
 import FilterChips from './components/FilterChips.jsx';
-import MapView from './components/Map.jsx';
 import BottomSheet, { COLLAPSED_HEIGHT } from './components/BottomSheet.jsx';
 import PopupList from './components/PopupList.jsx';
+import CityLinks from './components/CityLinks.jsx';
 import NearMeButton from './components/NearMeButton.jsx';
 import ExpandMapButton from './components/ExpandMapButton.jsx';
 import SortToggle from './components/SortToggle.jsx';
@@ -16,9 +16,16 @@ import { useSavedPopups } from './hooks/useSavedPopups.js';
 import { useCityRoute } from './hooks/useCityRoute.js';
 import { cityForPopup, popupsInCity } from './lib/cities.js';
 import { RESIDENCY_ID_PREFIX } from './lib/csv.js';
-import { filterPopups, FILTERS } from './lib/dateFilters.js';
+import { FILTERS } from './lib/dateFilters.js';
 import { distanceMeters } from './lib/geo.js';
-import { filterResidencies, isResidency, residencyEntryNow } from './lib/residencies.js';
+import { byStart, emptyListMessage, filterListings, listSummary } from './lib/listing.js';
+import { pagePathFor, parsePagePath, popupSlugs, residencySlugs } from './lib/pages.js';
+import { residencyEntryNow } from './lib/residencies.js';
+
+// MapLibre is most of the app's JavaScript. Loading the map on its own lets
+// the list render - and take over from the prerendered page - without waiting
+// for it.
+const MapView = lazy(() => import('./components/Map.jsx'));
 
 // Mobile-layout header height. The header grows to 56px at md (768px), which
 // is exactly where the layout switches to desktop and the bottom sheet stops
@@ -28,8 +35,6 @@ const HEADER_HEIGHT = 48;
 const CHIPS_HEIGHT = 48;
 const CUSTOM_PANEL_HEIGHT = 56;
 const DESKTOP_MIN_WIDTH = 768;
-
-const byStart = (a, b) => a.start.toMillis() - b.start.toMillis();
 
 function readUrlState() {
   const params = new URLSearchParams(window.location.search);
@@ -47,7 +52,11 @@ function readUrlState() {
   // Residencies are shown unless switched off; only the off state is kept in
   // the URL (?res=0), so ordinary links stay clean.
   const showResidencies = params.get('res') !== '0';
-  return { filter, customRange: { from, to }, sharedId, instagramMode, showResidencies };
+  // A pop-up or residency page address that reached the app instead of a
+  // prerendered page - a row added since the last build, or a page more than
+  // 30 days past its end - is treated like ?id= once the sheet has loaded.
+  const pageLink = sharedId ? null : parsePagePath(window.location.pathname);
+  return { filter, customRange: { from, to }, sharedId, instagramMode, showResidencies, pageLink };
 }
 
 function writeUrlState({ filter, customRange, showResidencies }) {
@@ -109,6 +118,7 @@ export default function App() {
   // can be force-injected into the list/map even when the active date filter
   // — or the pop-up having already ended — would normally hide it.
   const [sharedId, setSharedId] = useState(initial.sharedId);
+  const [pageLink, setPageLink] = useState(initial.pageLink);
   const instagramMode = initial.instagramMode;
 
   const [selectedId, setSelectedId] = useState(null);
@@ -130,7 +140,23 @@ export default function App() {
   const [flyToUserSeq, setFlyToUserSeq] = useState(0);
   const { saved, isSaved, toggle: toggleSaved } = useSavedPopups();
 
-  useEffect(() => {
+  // Page addresses for every pop-up and residency, from the same helpers the
+  // build uses (src/lib/pages.js), so Share links to the pages it writes.
+  const slugs = useMemo(
+    () => ({ popups: popupSlugs(everyPopup), residencies: residencySlugs(everyResidency) }),
+    [everyPopup, everyResidency],
+  );
+  const shareUrlFor = useCallback(
+    (item) => {
+      const path = pagePathFor(item, slugs);
+      return path ? new URL(path, window.location.origin).toString() : null;
+    },
+    [slugs],
+  );
+
+  // Measured before paint, so on a prerendered page the sheet stays exactly
+  // where the static copy drew it instead of jumping for a frame.
+  useLayoutEffect(() => {
     const measure = () => {
       const node = shellRef.current;
       if (node) setContainerHeight(node.clientHeight);
@@ -146,12 +172,17 @@ export default function App() {
 
   // Residencies slot into the same date order as one-off pop-ups, each placed
   // at its first date inside the active window.
-  const filtered = useMemo(() => {
-    const popups = filterPopups(allPopups, filter, customRange, city.timezone);
-    if (!residenciesOn) return popups;
-    const residencies = filterResidencies(allResidencies, filter, customRange, city.timezone);
-    return [...popups, ...residencies].sort(byStart);
-  }, [allPopups, allResidencies, residenciesOn, filter, customRange, city.timezone]);
+  const filtered = useMemo(
+    () =>
+      filterListings(
+        allPopups,
+        residenciesOn ? allResidencies : null,
+        filter,
+        customRange,
+        city.timezone,
+      ),
+    [allPopups, allResidencies, residenciesOn, filter, customRange, city.timezone],
+  );
 
   // In saved mode we bypass the date filter entirely and show every saved
   // pop-up (past and future). Otherwise apply the active date filter, and
@@ -232,6 +263,25 @@ export default function App() {
     // browsing (changes filter/sort), at which point the handlers clear it.
   }, [sharedId, everyPopup, everyResidency, residencyStatus, isDesktop, city, selectCity]);
 
+  // Resolve a page address (see readUrlState) to its pop-up or residency and
+  // hand it to the ?id= handling above. Vendor pages have no single pop-up to
+  // show, so they just open the city.
+  useEffect(() => {
+    if (!pageLink) return;
+    const residencyPage = pageLink.kind === 'residencies';
+    if (pageLink.kind === 'popups' && everyPopup.length === 0) return;
+    if (residencyPage && residencyStatus === 'loading') return;
+    setPageLink(null);
+    if (pageLink.kind === 'vendors') return;
+    const items = residencyPage ? everyResidency : everyPopup;
+    const pageSlugs = residencyPage ? slugs.residencies : slugs.popups;
+    const target = items.find(
+      (item) =>
+        pageSlugs.get(item.id) === pageLink.slug && cityForPopup(item)?.slug === pageLink.city.slug,
+    );
+    if (target) setSharedId(target.id);
+  }, [pageLink, everyPopup, everyResidency, residencyStatus, slugs]);
+
   // Clearing the deep-link override once the user starts browsing normally.
   const onFilterChange = useCallback((next) => {
     setSharedId(null);
@@ -292,24 +342,15 @@ export default function App() {
     if (sortMode === 'distance' && geo.error) setSortMode('date');
   }, [sortMode, geo.error]);
 
-  const residencyCount = sorted.filter(isResidency).length;
-  const popupCount = sorted.length - residencyCount;
-  const summary =
-    status === 'loading'
-      ? 'Loading'
-      : `${popupCount} pop-up${popupCount === 1 ? '' : 's'}` +
-        (residencyCount > 0
-          ? ` · ${residencyCount} ${residencyCount === 1 ? 'residency' : 'residencies'}`
-          : '');
+  const summary = status === 'loading' ? 'Loading' : listSummary(sorted);
 
   // City-aware empty copy so a city with no upcoming rows doesn't read as a
   // loading failure.
-  const emptyMessage =
-    sortMode === 'saved'
-      ? 'No saved pop-ups yet. Tap the star on any card to save it.'
-      : allPopups.length === 0
-      ? `No pop-ups listed in ${city.name} yet.`
-      : `No pop-ups happening in ${city.name} this week.`;
+  const emptyMessage = emptyListMessage({
+    cityName: city.name,
+    saved: sortMode === 'saved',
+    anyListed: allPopups.length > 0,
+  });
 
   const topAreaHeight =
     HEADER_HEIGHT + CHIPS_HEIGHT + (filter === 'custom' ? CUSTOM_PANEL_HEIGHT : 0);
@@ -375,24 +416,28 @@ export default function App() {
                     onToggleSave={toggleSaved}
                     isPast={isPast}
                     emptyMessage={emptyMessage}
+                    shareUrlFor={shareUrlFor}
                   />
+                  <CityLinks city={city} cities={cities} onSelect={selectCity} />
                 </div>
               </aside>
             )}
             <section className="relative flex-1 min-w-0">
               <div className="absolute inset-0">
-                <MapView
-                  popups={sorted}
-                  selectedId={selectedId}
-                  selectedSeq={mapSelectSeq}
-                  userCoord={geo.coord}
-                  flyToUserSeq={flyToUserSeq}
-                  onMarkerSelect={onMarkerSelect}
-                  resizeKey={resizeKey}
-                  center={city.center}
-                  zoom={city.zoom}
-                  instagramMode={instagramMode}
-                />
+                <Suspense fallback={null}>
+                  <MapView
+                    popups={sorted}
+                    selectedId={selectedId}
+                    selectedSeq={mapSelectSeq}
+                    userCoord={geo.coord}
+                    flyToUserSeq={flyToUserSeq}
+                    onMarkerSelect={onMarkerSelect}
+                    resizeKey={resizeKey}
+                    center={city.center}
+                    zoom={city.zoom}
+                    instagramMode={instagramMode}
+                  />
+                </Suspense>
               </div>
 
               <MapLegend showResidency={residenciesOn} />
@@ -427,18 +472,20 @@ export default function App() {
         ) : (
           <>
             <div className="absolute inset-0">
-              <MapView
-                popups={sorted}
-                selectedId={selectedId}
-                selectedSeq={mapSelectSeq}
-                userCoord={geo.coord}
-                flyToUserSeq={flyToUserSeq}
-                onMarkerSelect={onMarkerSelect}
-                resizeKey={resizeKey}
-                center={city.center}
-                zoom={city.zoom}
-                instagramMode={instagramMode}
-              />
+              <Suspense fallback={null}>
+                <MapView
+                  popups={sorted}
+                  selectedId={selectedId}
+                  selectedSeq={mapSelectSeq}
+                  userCoord={geo.coord}
+                  flyToUserSeq={flyToUserSeq}
+                  onMarkerSelect={onMarkerSelect}
+                  resizeKey={resizeKey}
+                  center={city.center}
+                  zoom={city.zoom}
+                  instagramMode={instagramMode}
+                />
+              </Suspense>
             </div>
 
             <MapLegend showResidency={residenciesOn} />
@@ -493,7 +540,9 @@ export default function App() {
                   onToggleSave={toggleSaved}
                   isPast={isPast}
                   emptyMessage={emptyMessage}
+                  shareUrlFor={shareUrlFor}
                 />
+                <CityLinks city={city} cities={cities} onSelect={selectCity} />
               </BottomSheet>
             )}
           </>

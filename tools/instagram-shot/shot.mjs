@@ -241,7 +241,7 @@ async function scrapeCaption(browser, opts) {
       waitUntil: 'load',
       timeout: opts.timeout,
     });
-    await page.waitForSelector('aside .overflow-y-auto button', { timeout: opts.timeout });
+    await page.waitForSelector('aside [data-popup-card]', { timeout: opts.timeout });
     // Residencies come from a second sheet that can land after the first cards
     // render. The app flags when that sheet has settled (loaded, failed, or not
     // configured), so wait for that before reading the list. (Waiting for the
@@ -251,38 +251,20 @@ async function scrapeCaption(browser, opts) {
       '[data-residency-status]:not([data-residency-status="loading"])',
       { timeout: opts.timeout },
     );
-    return await page.evaluate(() => {
-      const list = document.querySelector('aside .overflow-y-auto > div');
-      if (!list) return [];
-      // Card text is laid out across nested elements, so collapse whitespace —
-      // raw textContent carries newlines that would break the caption lines.
-      const clean = (value) => (value || '').replace(/\s+/g, ' ').trim();
-      return [...list.children]
-        .filter((el) => el.tagName === 'BUTTON')
-        .map((card) => {
-          const title = card.querySelector('div > div');
-          const venueEl = title ? title.querySelector('span') : null;
-          const name = title
-            ? clean(
-                [...title.childNodes]
-                  .filter((n) => n.nodeType === Node.TEXT_NODE)
-                  .map((n) => n.textContent)
-                  .join(' '),
-              )
-            : '';
-          const rows = card.querySelectorAll('div > div');
-          const instagram = card.querySelector('a[aria-label="Open Instagram"]');
-          return {
-            name,
-            venue: clean(venueEl ? venueEl.textContent : '').replace(/^@\s*/, ''),
-            when: clean(rows[1] ? rows[1].textContent : ''),
-            instagram: instagram ? instagram.href : '',
-            // Residency cards carry their weekly schedule; others have none.
-            residency: card.dataset.residency || '',
-          };
-        })
-        .filter((row) => row.name);
-    });
+    // Each card carries its fields as data attributes (src/components/
+    // PopupCard.jsx), so the caption doesn't depend on the card's markup.
+    return await page.evaluate(() =>
+      [...document.querySelectorAll('aside [data-popup-card]')]
+        .map((card) => ({
+          name: card.dataset.name || '',
+          venue: card.dataset.venue || '',
+          when: card.dataset.when || '',
+          instagram: card.dataset.instagram || '',
+          // Residency cards carry their weekly schedule; others have none.
+          residency: card.dataset.residency || '',
+        }))
+        .filter((row) => row.name),
+    );
   } catch {
     return [];
   } finally {

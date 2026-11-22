@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Bottom sheet with three snap points: collapsed / half / full.
 // Pixel offsets are computed from the container height.
@@ -71,8 +71,10 @@ export default function BottomSheet({
   const sheetRef = useRef(null);
   const grabRef = useRef(null);
 
-  // Re-clamp when container resizes — preserve the current label.
-  useEffect(() => {
+  // Re-clamp when container resizes — preserve the current label. Before
+  // paint, so the first measurement after load can't show the sheet a frame
+  // out of place (the prerendered page draws it at the measured spot).
+  useLayoutEffect(() => {
     setTop((t) => {
       const prevSnaps = computeSnaps(availableHeight);
       const next = computeSnaps(availableHeight);
