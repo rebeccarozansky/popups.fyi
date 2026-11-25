@@ -462,6 +462,13 @@ function vendorPage(vendor, city, slugs, now) {
         residencies={vendor.liveResidencies.map((r) => residencyRow(r, slugs, now))}
         orderUrl={orderUrl}
         mapPath={first ? `${pathForCity(city)}?id=${encodeURIComponent(first.id)}` : pathForCity(city)}
+        calendar={{
+          popups: vendor.popups,
+          residencies: vendor.residencies,
+          zone: city.timezone,
+          now,
+          linkFor: (item) => pagePathFor(item, slugs, now),
+        }}
       />
     </StaticPage>,
   );
