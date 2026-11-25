@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef, useState } from 'react';
 import { CUSTOM_MAX_DAYS, validateCustomRange } from '../lib/dateFilters.js';
 import ResidencyGlyph from './ResidencyGlyph.jsx';
 
@@ -23,10 +24,14 @@ export default function FilterChips({
     <>
       <nav
         className={
-          'h-12 border-b border-hair bg-white flex items-stretch px-5 relative z-20 ' +
-          // Phones need a slightly tighter row to fit the switch beside the
-          // four chips; without a switch the spacing is unchanged.
-          (residency ? 'gap-4 sm:gap-5' : 'gap-5')
+          'h-12 border-b border-hair bg-white flex items-stretch px-5 relative ' +
+          // Above the map's legend and buttons (z-450) and the phone list
+          // sheet (z-500), which the residency explanation drops over.
+          'z-[700] ' +
+          // Phones need a slightly tighter row to fit the switch and its "?"
+          // beside the four chips (tighter still under 390px); without a
+          // switch the spacing is unchanged.
+          (residency ? 'gap-3 min-[390px]:gap-4 sm:gap-5' : 'gap-5')
         }
         aria-label="Filter pop-ups"
       >
@@ -64,27 +69,118 @@ export default function FilterChips({
 
 // Layers residencies (standing weekly slots) onto the list and map. A switch
 // rather than a fifth chip: the chips pick ONE date window, while this adds
-// residencies on top of whichever window is active.
+// residencies on top of whichever window is active. The "?" after it says
+// what a residency is.
 function ResidencyToggle({ on, onToggle }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={() => onToggle(!on)}
-      title="Vendors with a regular weekly spot"
-      className={
-        'ml-auto shrink-0 h-full flex items-center gap-2 text-[13px] ' +
-        (on ? 'text-ink' : 'text-muted')
+    <div className="ml-auto shrink-0 h-full flex items-center relative">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        onClick={() => onToggle(!on)}
+        title="Vendors with a regular weekly spot"
+        className={'h-full flex items-center gap-2 text-[13px] ' + (on ? 'text-ink' : 'text-muted')}
+      >
+        {/* Phones have no room for the word beside the four chips (it pushed
+            "This Week" onto two lines), so they show the residency mark from
+            the legend instead. The word stays as the switch's accessible name. */}
+        <ResidencyGlyph size={14} strokeWidth={1.6} className="sm:hidden" />
+        <span className="sr-only sm:not-sr-only">Residencies</span>
+        <HandSwitch on={on} />
+      </button>
+      <ResidencyHelp />
+    </div>
+  );
+}
+
+// The "?" and the short explanation it opens below the row (positioned by
+// ResidencyToggle's wrapper). Closes on a second tap, a tap anywhere else, or
+// Escape.
+function ResidencyHelp() {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef(null);
+  const panelRef = useRef(null);
+  const panelId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e) => {
+      if (!buttonRef.current?.contains(e.target) && !panelRef.current?.contains(e.target)) {
+        setOpen(false);
       }
+    };
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label="What's a residency?"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((v) => !v)}
+        // The padding widens the tap target; the negative margin lets it run
+        // into the row's padding so the mark itself lines up with the edge.
+        className={
+          'h-full -mr-1.5 px-1.5 flex items-center ' +
+          (open ? 'text-ink' : 'text-muted hover:text-ink')
+        }
+      >
+        <HelpMark />
+      </button>
+      <div
+        ref={panelRef}
+        id={panelId}
+        hidden={!open}
+        className="absolute right-0 top-full mt-2 w-[260px] max-w-[calc(100vw-2.5rem)] bg-white border border-hair px-4 py-3 text-left"
+      >
+        {/* Notch pointing up at the "?", centred under the 15px mark. */}
+        <span
+          aria-hidden="true"
+          className="absolute -top-[5px] right-[2px] w-[9px] h-[9px] rotate-45 bg-white border-l border-t border-hair"
+        />
+        <p className="text-[13px] font-semibold text-ink">What&apos;s a residency?</p>
+        <p className="mt-1 text-[12px] leading-snug text-muted text-pretty">
+          A re-occurring pop-up that&apos;s at the same location every single
+          week. Look for the{' '}
+          <ResidencyGlyph size={11} strokeWidth={1.6} className="inline-block align-[-1px] text-ink" />{' '}
+          on the map and in the list.
+        </p>
+      </div>
+    </>
+  );
+}
+
+// Hand-drawn "?" in a lumpy circle, to match the switch beside it.
+function HelpMark() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0"
     >
-      {/* Phones have no room for the word beside the four chips (it pushed
-          "This Week" onto two lines), so they show the residency mark from
-          the legend instead. The word stays as the switch's accessible name. */}
-      <ResidencyGlyph size={14} strokeWidth={1.6} className="sm:hidden" />
-      <span className="sr-only sm:not-sr-only">Residencies</span>
-      <HandSwitch on={on} />
-    </button>
+      <path d="M8.3 1.6 C 12 1.5 14.5 4.3 14.4 8.1 C 14.3 11.8 11.5 14.5 7.8 14.4 C 4.2 14.3 1.5 11.5 1.6 7.8 C 1.7 4.2 4.6 1.7 8.3 1.6 Z" />
+      <path d="M5.9 6.1 C 6 4.9 6.9 4.1 8.1 4.1 C 9.3 4.2 10.2 5 10.1 6.1 C 10 7.1 9.2 7.5 8.6 7.9 C 8.1 8.3 7.9 8.7 8 9.4" />
+      <circle cx="8" cy="11.6" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 

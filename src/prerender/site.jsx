@@ -449,6 +449,9 @@ function vendorPage(vendor, city, slugs, now) {
     { name: vendor.name, path },
   ];
   const first = vendor.upcoming[0] || vendor.liveResidencies[0];
+  // The first listed date's order link. Some are for one date only (a
+  // pre-order form, an event page), so past rows' links aren't used.
+  const orderUrl = [...vendor.upcoming, ...vendor.liveResidencies].find((item) => item.order_url)?.order_url;
   const body = renderToStaticMarkup(
     <StaticPage city={city} breadcrumbs={crumbs}>
       <VendorPage
@@ -457,6 +460,7 @@ function vendorPage(vendor, city, slugs, now) {
         intro={`${intro.charAt(0).toUpperCase()}${intro.slice(1)}.`}
         upcoming={vendor.upcoming.map((p) => popupRow(p, slugs, now))}
         residencies={vendor.liveResidencies.map((r) => residencyRow(r, slugs, now))}
+        orderUrl={orderUrl}
         mapPath={first ? `${pathForCity(city)}?id=${encodeURIComponent(first.id)}` : pathForCity(city)}
       />
     </StaticPage>,
