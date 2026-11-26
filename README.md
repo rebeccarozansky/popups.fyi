@@ -23,12 +23,12 @@ To see the site the way it ships — prerendered pages, real status codes — bu
 npm run build
 npm run serve:pages   # http://127.0.0.1:4173
 npm run seo:check     # what a crawler without JavaScript sees
-npm test              # slug and cover unit tests
+npm test              # slug, cover and slide unit tests
 ```
 
 ## Instagram maps and captions
 
-With the local site running, [tools/instagram-shot/shot.mjs](tools/instagram-shot/shot.mjs) saves a post-ready map PNG, a cover image and caption text for one city:
+With the local site running, [tools/instagram-shot/shot.mjs](tools/instagram-shot/shot.mjs) saves a post-ready map PNG, a cover image, day-by-day list slides and caption text for one city:
 
 ```bash
 node tools/instagram-shot/shot.mjs --city seattle --from 2026-09-17 --to 2026-09-22 --url http://127.0.0.1:5173
@@ -40,6 +40,8 @@ Custom dates are inclusive (up to 14 days). Like the site, the generator exclude
 The caption lists each pop-up with its vendor's handle, then residencies in their own section, then the city's hashtags. Residencies only appear when `VITE_RESIDENCY_CSV_URL` is set in `.env.local`.
 
 The cover is a title card for the first slide — Pip above "Pop-Ups in Seattle for Sep 17–22" — saved as a `-cover.jpg` the same size as the map. `--mascot <file>` swaps Pip for another SVG, PNG, JPG or WebP image for that run.
+
+The list slides go between the cover and the map, saved as `-slide-01-<days>.jpg`, `-slide-02-…` in carousel order. They use the site's look: its header, the list's rows with the map's category icons, and the cover's handwriting, with "swipe to see the map" in the corner. Pop-ups are listed in time order. Thursday shares a slide with Friday and Monday with Tuesday; Saturday and Sunday (and Wednesday, when the range has one) get a slide each, and days with nothing listed are left out. Residencies get a slide of their own after the days, each with the days and hours it's on in the range. A day with more pop-ups than fit on one slide carries on to a "continued" slide that holds only that day. A re-run replaces the last run's slides; `--no-slides` skips them.
 
 Outputs go to `screenshots/` with a shared city/date basename. Use `--out` or `--name` to change the destination or basename, and `--no-caption` to skip the text. The default portrait image is **1080 × 1350**; `--format square` (1080 × 1080) and `--format story` (1080 × 1920) are also available.
 

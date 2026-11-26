@@ -4,9 +4,11 @@
  *
  * Renders the map in "instagram mode" (?ig=1, which un-nests every pop-up and
  * hides the interactive chrome) and saves a post-ready PNG, a matching cover
- * JPG for the first slide, plus a caption file listing the vendors and their
- * handles so they're easy to tag, with residencies in a separate section and
- * the city's hashtags at the bottom.
+ * JPG for the first slide, slides listing the pop-ups day by day (and the
+ * residencies on a slide of their own) to go between the cover and the map,
+ * plus a caption file listing the vendors and their handles so they're easy to
+ * tag, with residencies in a separate section and the city's hashtags at the
+ * bottom.
  *
  * The page is rendered at HALF the target size with deviceScaleFactor 2 rather
  * than at full size with dsf 1. Both produce a 1080px-wide file, but a 1080px
@@ -30,14 +32,16 @@
  *   --name <file>                  Override the output filename
  *   --mascot <file>                Cover image instead of the site logo
  *   --no-caption                   Skip the .txt caption sidecar
+ *   --no-slides                    Skip the day-by-day slides
  *   --keep-ui                      Leave the dropdown caret / legend close button in
  *   --help
  */
 
 import { chromium } from 'playwright';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { renderCover } from './cover.mjs';
+import { renderSlides } from './slides.mjs';
 
 // 4:5 is the tallest aspect the Instagram feed will show without cropping, so
 // it's the default — it gives the map the most room.
@@ -70,6 +74,7 @@ const DEFAULTS = {
   url: 'http://localhost:5173',
   scale: 2,
   caption: true,
+  slides: true,
   keepUi: false,
   name: '',
   mascot: undefined,
@@ -94,6 +99,7 @@ function usage() {
       '  --name     override output filename',
       '  --mascot   cover image instead of the site logo',
       '  --no-caption   skip the caption .txt',
+      '  --no-slides    skip the day-by-day slides',
       '  --keep-ui      keep the dropdown caret + legend close button',
     ].join('\n'),
   );
@@ -120,6 +126,7 @@ function parseArgs(argv) {
       case '--name': opts.name = next(); break;
       case '--mascot': opts.mascot = path.resolve(next()); break;
       case '--no-caption': opts.caption = false; break;
+      case '--no-slides': opts.slides = false; break;
       case '--keep-ui': opts.keepUi = true; break;
       case '--help': case '-h': opts.help = true; break;
       default: {
@@ -232,9 +239,11 @@ async function waitForMapReady(page, timeout) {
   );
 }
 
-// Pull vendor names + handles off the normal (non-ig) list so the post caption
-// can tag everyone. Best effort: a caption is nice to have, an image is not.
-async function scrapeCaption(browser, opts) {
+// Pull the listed pop-ups off the normal (non-ig) list: vendor names + handles
+// so the post caption can tag everyone, and times, neighborhoods and
+// categories for the day slides. Best effort: a caption and slides are nice to
+// have, an image is not.
+async function scrapeList(browser, opts) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   try {
     await page.goto(`${opts.url}/${opts.city}?${queryFor(opts)}`, {
@@ -252,7 +261,7 @@ async function scrapeCaption(browser, opts) {
       { timeout: opts.timeout },
     );
     // Each card carries its fields as data attributes (src/components/
-    // PopupCard.jsx), so the caption doesn't depend on the card's markup.
+    // PopupCard.jsx), so the caption and slides don't depend on its markup.
     return await page.evaluate(() =>
       [...document.querySelectorAll('aside [data-popup-card]')]
         .map((card) => ({
@@ -262,6 +271,12 @@ async function scrapeCaption(browser, opts) {
           instagram: card.dataset.instagram || '',
           // Residency cards carry their weekly schedule; others have none.
           residency: card.dataset.residency || '',
+          start: card.dataset.start || '',
+          end: card.dataset.end || '',
+          neighborhood: card.dataset.neighborhood || '',
+          categories: card.dataset.categories || '',
+          // A residency's dates inside the listed window.
+          occurrences: card.dataset.occurrences || '',
         }))
         .filter((row) => row.name),
     );
@@ -324,6 +339,22 @@ function buildCaption(rows, opts) {
   return lines.join('\n');
 }
 
+// Slides are numbered in carousel order after the cover. A re-run can make
+// fewer of them, so the last run's are cleared first rather than left to be
+// posted by mistake.
+function slideName(base, number, label) {
+  return `${base}-slide-${String(number).padStart(2, '0')}-${label}.jpg`;
+}
+
+async function removeOldSlides(outDir, base) {
+  const prefix = `${base}-slide-`;
+  for (const file of await readdir(outDir)) {
+    if (file.startsWith(prefix) && /^\d+-[a-z-]+\.jpg$/.test(file.slice(prefix.length))) {
+      await unlink(path.join(outDir, file));
+    }
+  }
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) return usage();
@@ -367,8 +398,9 @@ async function main() {
     await page.screenshot({ path: imagePath, type: 'png' });
     console.log(`✓ ${imagePath}  (${format.width}x${format.height})`);
 
+    const rows = opts.caption || opts.slides ? await scrapeList(browser, opts) : [];
+
     if (opts.caption) {
-      const rows = await scrapeCaption(browser, opts);
       if (rows.length > 0) {
         const captionPath = path.join(outDir, `${base}.txt`);
         await writeFile(captionPath, `${buildCaption(rows, opts)}\n`, 'utf8');
@@ -393,6 +425,29 @@ async function main() {
       timeout: opts.timeout,
     });
     console.log(`✓ ${coverPath}  (${format.width}x${format.height})`);
+
+    if (opts.slides) {
+      await removeOldSlides(outDir, base);
+      const slides = await renderSlides(browser, {
+        cards: rows,
+        citySlug: opts.city,
+        dateLabel: whenLabel(opts),
+        size: format,
+        layout: opts.format,
+        outputPathFor: (number, label) => path.join(outDir, slideName(base, number, label)),
+        timeout: opts.timeout,
+      });
+      for (const slide of slides) {
+        console.log(`✓ ${slide.path}  (${format.width}x${format.height}, ${slide.description})`);
+      }
+      if (slides.length === 0) {
+        console.log(
+          rows.length > 0
+            ? '! slides skipped — the list has no times to sort by (is the site up to date?)'
+            : '! slides skipped — nothing listed, or the pop-up list could not be read',
+        );
+      }
+    }
   } finally {
     await browser.close();
   }

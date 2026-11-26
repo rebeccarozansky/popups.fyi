@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>popups.fyi — Instagram day slides</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap"
+    />
+    <style>
+      /* 540 CSS pixels wide rendered at 2x, like the cover; the renderer sets
+         the viewport height for portrait, square and story slides. The type
+         and colours are the site's own (src/index.css, tailwind.config.js):
+         the header is Header.jsx at phone width, the rows are the agenda rows
+         of the vendor calendar (src/prerender/VendorCalendar.jsx) scaled up
+         to be read on a feed post, and the handwriting is the cover's. */
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: #ffffff;
+      }
+
+      .slide {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 540px;
+        height: 100vh;
+        overflow: hidden;
+        background: #ffffff;
+        color: #0a1628;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .hand {
+        font-family: 'Indie Flower', 'Bradley Hand', cursive;
+        font-weight: 400;
+        font-feature-settings: 'calt' 1, 'dlig' 1, 'ss01' 1;
+        white-space: nowrap;
+      }
+
+      .glyph {
+        display: inline-block;
+        transform-origin: 50% 70%;
+        white-space: pre;
+      }
+
+      /* The site header: Pip and the jittered wordmark over a hairline. */
+      .site-header {
+        flex: none;
+        display: flex;
+        align-items: center;
+        height: 48px;
+        padding: 0 24px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .logo {
+        height: 40px;
+        width: auto;
+        margin-right: 6px;
+      }
+
+      .wordmark {
+        font-size: 22px;
+        line-height: 1;
+      }
+
+      .content {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        padding: 18px 24px 0;
+      }
+
+      .heading {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin: 0 0 6px;
+        font-size: 16px;
+        font-weight: 400;
+        white-space: nowrap;
+      }
+
+      .heading-main {
+        font-size: 36px;
+        line-height: 1.15;
+      }
+
+      .heading-sub {
+        font-size: 24px;
+        line-height: 1;
+        color: #6b7280;
+      }
+
+      /* The residency mark (the map's exponent house), drawn in the heading's ink. */
+      .heading-mark {
+        flex: none;
+        align-self: center;
+        width: 28px;
+        height: 28px;
+        margin-right: -2px;
+      }
+
+      /* "Continued" in the site's small-caps label style (LABEL_CLASS). */
+      .heading-cont {
+        margin-left: auto;
+        align-self: center;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9ca3af;
+      }
+
+      .rows {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border-top: 1px solid #e5e7eb;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 0;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      /* The map's hand-drawn category icons, with room for the residency
+         exponent; multi-category vendors stack theirs. */
+      .icons {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        width: 36px;
+      }
+
+      .icons svg {
+        display: block;
+        overflow: visible;
+      }
+
+      .text {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .title {
+        display: block;
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+
+      .venue {
+        font-weight: 400;
+        color: #6b7280;
+      }
+
+      .meta {
+        display: block;
+        margin-top: 2px;
+        font-size: 15px;
+        line-height: 1.3;
+        color: #6b7280;
+      }
+
+      .footer {
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        height: 58px;
+        padding: 0 30px 12px;
+      }
+
+      .swipe {
+        display: inline-flex;
+        align-items: center;
+        font-size: 22px;
+        line-height: 1;
+      }
+
+      /* The cover's arrow: Indie Flower has no U+2192, so it is the font's own
+         hyphen stretched into a shaft, then a greater-than sign. */
+      .arrow {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 24px;
+        font-size: 40px;
+        line-height: 1;
+        transform: rotate(-3deg);
+      }
+
+      .arrow-shaft {
+        display: inline-block;
+        margin-right: -0.13em;
+        transform: scaleX(2.1);
+        transform-origin: right center;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="slide {{LAYOUT}}" aria-label="{{LABEL}}">
+      <header class="site-header">
+        <img class="logo" src="{{LOGO}}" alt="" />
+        <span class="wordmark hand" aria-label="{{WORDMARK_LABEL}}"><span aria-hidden="true">{{WORDMARK}}</span></span>
+      </header>
+
+      <section class="content"></section>
+
+      <footer class="footer">
+        <span class="swipe hand" role="img" aria-label="Swipe to see the map">
+          <span aria-hidden="true">{{SWIPE}}</span>
+          <span class="arrow" aria-hidden="true">
+            <span class="arrow-shaft">-</span><span class="arrow-head">&gt;</span>
+          </span>
+        </span>
+      </footer>
+    </main>
+  </body>
+</html>

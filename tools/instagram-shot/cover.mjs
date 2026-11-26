@@ -16,14 +16,15 @@ const MASCOT_TYPES = {
   '.webp': 'image/webp',
 };
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
   const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   return String(value).replace(/[&<>"']/g, (character) => entities[character]);
 }
 
 // Same deterministic per-letter transforms as the website header and the
 // approved design proof. Generate spans here so the template needs no JS.
-function jitter(text, offset) {
+// The day slides (slides.mjs) use it too.
+export function jitter(text, offset) {
   const seed = (i) => {
     const x = Math.sin((i + 1) * 9973.13) * 10000;
     return x - Math.floor(x);

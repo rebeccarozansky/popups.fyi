@@ -149,6 +149,10 @@ export function mapsUrlFor(popup) {
   return null;
 }
 
+// ISO time with its UTC offset, so a reader of the card's data attributes gets
+// the pop-up's own local day and hours back.
+const isoTime = (dt) => dt.toISO({ suppressMilliseconds: true });
+
 // Links and buttons inside the card. `relative` lifts them above the card's
 // full-size select button (or the prerendered title link).
 const ACTION_CLASS =
@@ -179,16 +183,27 @@ const PopupCard = forwardRef(function PopupCard(
   return (
     <article
       ref={ref}
-      // Explicit fields for the Instagram caption script (tools/instagram-shot),
-      // so it doesn't depend on this markup. Residency cards also carry their
-      // weekly schedule, which the caption lists in a section of its own.
+      // Explicit fields for the Instagram caption and day slides
+      // (tools/instagram-shot), so they don't depend on this markup. Residency
+      // cards also carry their weekly schedule, which the caption lists in a
+      // section of its own, and their dates inside the listed window
+      // (space-separated start/end pairs) for the slides.
       data-popup-card=""
       data-popup-id={popup.id}
       data-name={popup.name}
       data-venue={popup.location_name || undefined}
       data-when={when}
+      data-start={isoTime(popup.start)}
+      data-end={isoTime(popup.end)}
+      data-neighborhood={popup.neighborhood || undefined}
+      data-categories={popup.categories?.length ? popup.categories.join(',') : undefined}
       data-instagram={popup.instagram_url || undefined}
       data-residency={residency ? formatResidencyCaption(popup) : undefined}
+      data-occurrences={
+        residency && popup.occurrences
+          ? popup.occurrences.map((o) => `${isoTime(o.start)}/${isoTime(o.end)}`).join(' ')
+          : undefined
+      }
       className="relative w-full text-left bg-white border-b border-hair active:bg-surfacealt px-5 py-4 flex items-start gap-4"
     >
       {!href && (
